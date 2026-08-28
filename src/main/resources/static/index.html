@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DispatchLab | Courier Dispatch Simulator</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <main class="shell">
+        <header class="topbar">
+            <div>
+                <p class="eyebrow">DISPATCHLAB / FIELD STUDY 01</p>
+                <h1>Courier dispatch simulator</h1>
+            </div>
+            <div class="run-state" id="runState">PAUSED</div>
+        </header>
+
+        <section class="workspace">
+            <div class="simulation-panel">
+                <div class="panel-heading">
+                    <div>
+                        <p class="eyebrow">LIVE NETWORK</p>
+                        <h2>City board</h2>
+                    </div>
+                    <div class="legend" aria-label="Map legend">
+                        <span><i class="legend-dot depot"></i>depot</span>
+                        <span><i class="legend-dot request"></i>request</span>
+                        <span><i class="legend-dot courier"></i>courier</span>
+                    </div>
+                </div>
+                <div class="board-wrap">
+                    <canvas id="board" aria-label="Interactive courier dispatch map"></canvas>
+                    <div class="board-hint">Click a square to place a delivery request</div>
+                </div>
+                <div class="timeline">
+                    <span class="timeline-label">T+ <strong id="clock">00:00</strong></span>
+                    <div class="timeline-track"><span id="timelineFill"></span></div>
+                    <span class="timeline-label">DAY 01</span>
+                </div>
+            </div>
+
+            <aside class="control-panel">
+                <section class="control-section">
+                    <div class="section-title"><span>01</span><h2>Dispatch rule</h2></div>
+                    <label class="select-label" for="algorithm">Assignment algorithm</label>
+                    <select id="algorithm">
+                        <option value="nearest">Nearest courier</option>
+                        <option value="priority">Priority first</option>
+                        <option value="balanced">Balanced workload</option>
+                    </select>
+                    <p class="algorithm-note" id="algorithmNote">Minimizes grid distance from courier to pickup.</p>
+                </section>
+
+                <section class="control-section">
+                    <div class="section-title"><span>02</span><h2>Scenario</h2></div>
+                    <label class="range-row" for="demand">
+                        <span>Demand intensity</span><output id="demandValue">Medium</output>
+                    </label>
+                    <input id="demand" type="range" min="1" max="3" value="2">
+                    <label class="range-row" for="courierCount">
+                        <span>Courier fleet</span><output id="courierValue">6 riders</output>
+                    </label>
+                    <input id="courierCount" type="range" min="3" max="10" value="6">
+                </section>
+
+                <section class="control-section metrics-section">
+                    <div class="section-title"><span>03</span><h2>Telemetry</h2></div>
+                    <div class="metrics-grid">
+                        <div class="metric"><span>Delivered</span><strong id="delivered">0</strong></div>
+                        <div class="metric"><span>Waiting</span><strong id="waiting">0</strong></div>
+                        <div class="metric"><span>Avg. distance</span><strong id="distance">0.0</strong></div>
+                        <div class="metric"><span>Efficiency</span><strong id="efficiency">100%</strong></div>
+                    </div>
+                </section>
+
+                <div class="control-actions">
+                    <button class="primary-action" id="playButton" type="button"><span id="playIcon">></span> Start simulation</button>
+                    <button class="secondary-action" id="resetButton" type="button">Reset scenario</button>
+                </div>
+                <p class="status-line" id="statusLine">Ready for a new scenario.</p>
+            </aside>
+        </section>
+
+        <footer class="footer-note">A visual lab for comparing dispatch decisions under pressure.</footer>
+    </main>
+    <script src="/app.js"></script>
+</body>
+</html>
