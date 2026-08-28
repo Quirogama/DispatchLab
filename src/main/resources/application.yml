@@ -1,0 +1,6 @@
+spring:
+  application:
+    name: dispatchlab
+
+server:
+  port: 8080

@@ -74,6 +74,12 @@ docs/_build/
 # PyBuilder
 .pybuilder/
 target/
+*.class
+.classpath
+.project
+.settings/
+.idea/
+*.iml
 
 # Jupyter Notebook
 .ipynb_checkpoints
