@@ -1,4 +1,4 @@
-import { buildGridGraph, nearestNode, nodeDistance, shortestPath } from './dispatch-logic.js';
+import { buildGridGraph, nearestNode, nodeDistance, shortestPath, recomputeEdgeWeights, getEffectiveTraffic, getEdge } from './dispatch-logic.js';
 
 const canvas = document.querySelector('#board');
 const context = canvas.getContext('2d');
@@ -137,7 +137,12 @@ function moveCourier(courier, delta) {
     const dx = next.x - courier.x;
     const dy = next.y - courier.y;
     const segmentLength = Math.hypot(dx, dy);
-    const step = delta * 0.0045;
+    
+    const currentNode = { x: Math.round(courier.x), y: Math.round(courier.y) };
+    const nextNode = next;
+    const currentEdge = getEdge(state.graph, currentNode, nextNode);
+    const trafficMultiplier = currentEdge ? getEffectiveTraffic(currentEdge) : 0.2;
+    const step = delta * 0.001 * (1 / trafficMultiplier);
 
     if (segmentLength <= step) {
         courier.x = next.x;
@@ -162,8 +167,25 @@ function moveCourier(courier, delta) {
     }
 }
 
+function updateTraffic() {
+    state.graph.nodes.forEach(node => {
+        const key = `${node.x},${node.y}`;
+        const neighbors = state.graph.adjacency.get(key) ?? [];
+
+        neighbors.forEach(edge => {
+            const corridorPulse = (edge.x === 3 || edge.x === 8 || edge.y === 2 || edge.y === 5) ? 0.45 : 0;
+            const centerPulse = (node.x >= 4 && node.x <= 7 && node.y >= 2 && node.y <= 5) ? 0.3 : 0;
+            const wave = Math.sin((state.elapsed * 1.8) + (node.x * 1.7) + (edge.y * 1.1)) * 0.35;
+            edge.traffic = Math.max(0, Math.min(1.2, 0.1 + wave + corridorPulse + centerPulse));
+        });
+    });
+
+    recomputeEdgeWeights(state.graph);
+}
+
 function update(delta) {
     state.elapsed += delta / 1000;
+    updateTraffic();
     if (state.elapsed > 0 && state.elapsed % demandDelay() < delta / 1000) spawnRequest();
     state.requests.forEach(request => { request.age += delta / 1000; });
     state.couriers.forEach(courier => { if (courier.status !== 'idle') moveCourier(courier, delta); });
@@ -185,31 +207,37 @@ function point(station, width, height) {
     return { x: (station.x + 0.5) * width / grid.columns, y: (station.y + 0.5) * height / grid.rows };
 }
 
+function edgeTrafficColor(congestion) {
+    if (congestion >= 1.2) return '#d96c4d';
+    if (congestion >= 0.7) return '#e7b75d';
+    return '#8ab7b0';
+}
+
 function drawStreetNetwork(width, height) {
     context.fillStyle = '#edf2ee';
     context.fillRect(0, 0, width, height);
 
-    context.strokeStyle = '#bfd0ca';
-    context.lineWidth = 1.2;
-    context.globalAlpha = 0.95;
+    const seen = new Set();
+    state.graph.nodes.forEach(node => {
+        const key = `${node.x},${node.y}`;
+        (state.graph.adjacency.get(key) ?? []).forEach(neighbor => {
+            const edgeKey = [key, `${neighbor.x},${neighbor.y}`].sort().join('|');
+            if (seen.has(edgeKey)) return;
+            seen.add(edgeKey);
 
-    for (let x = 0; x < grid.columns; x += 1) {
-        const start = point({ x, y: 0 }, width, height);
-        const end = point({ x, y: grid.rows - 1 }, width, height);
-        context.beginPath();
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
-        context.stroke();
-    }
+            const start = point(node, width, height);
+            const end = point(neighbor, width, height);
+            const congestion = getEffectiveTraffic(neighbor);
 
-    for (let y = 0; y < grid.rows; y += 1) {
-        const start = point({ x: 0, y }, width, height);
-        const end = point({ x: grid.columns - 1, y }, width, height);
-        context.beginPath();
-        context.moveTo(start.x, start.y);
-        context.lineTo(end.x, end.y);
-        context.stroke();
-    }
+            context.beginPath();
+            context.moveTo(start.x, start.y);
+            context.lineTo(end.x, end.y);
+            context.strokeStyle = edgeTrafficColor(congestion);
+            context.lineWidth = 1.2 + congestion * 2.2;
+            context.globalAlpha = 0.8;
+            context.stroke();
+        });
+    });
 
     context.globalAlpha = 1;
     context.fillStyle = '#edf3f1';
@@ -271,28 +299,62 @@ function draw() {
         const courierPoint = point(courier, width, height);
         const size = 12;
 
+        const currentNode = { x: Math.round(courier.x), y: Math.round(courier.y) };
+        let nextNode = null;
+        if (courier.route && courier.route.length > 0) nextNode = courier.route[0];
+        const currentEdge = nextNode ? getEdge(state.graph, currentNode, nextNode) : null;
+        const trafficLevel = currentEdge ? getEffectiveTraffic(currentEdge) : 0.2;
+        const isInTraffic = trafficLevel > 0.8;
+
         context.fillStyle = '#3c6ecf';
-        context.shadowColor = 'rgba(60, 110, 207, 0.35)';
-        context.shadowBlur = 10;
+        context.shadowColor = isInTraffic ? 'rgba(217, 108, 77, 0.5)' : 'rgba(60, 110, 207, 0.35)';
+        context.shadowBlur = isInTraffic ? 15 : 10;
+        context.globalAlpha = isInTraffic ? 0.75 : 1;
         context.fillRect(courierPoint.x - size / 2, courierPoint.y - size / 2, size, size);
         context.shadowBlur = 0;
-        context.strokeStyle = '#fffdf8';
-        context.lineWidth = 2;
+        context.globalAlpha = 1;
+        context.strokeStyle = isInTraffic ? '#d96c4d' : '#fffdf8';
+        context.lineWidth = isInTraffic ? 3 : 2;
         context.strokeRect(courierPoint.x - size / 2, courierPoint.y - size / 2, size, size);
     });
 }
 
 function updateMetrics() {
     const waiting = state.requests.filter(request => !request.assigned).length;
+    const avgWait = state.requests.filter(request => !request.assigned).length > 0
+        ? (state.requests.filter(request => !request.assigned).reduce((sum, r) => sum + r.age, 0) / waiting).toFixed(1)
+        : '0.0';
+    
+    const activeEtas = state.couriers
+        .filter(c => c.request && c.status === 'to-pickup')
+        .map(c => estimateArrival(c, c.request.pickup));
+    const avgEta = activeEtas.length > 0
+        ? (activeEtas.reduce((a, b) => a + b, 0) / activeEtas.length).toFixed(0)
+        : '0';
+    
     document.querySelector('#delivered').textContent = state.delivered;
     document.querySelector('#waiting').textContent = waiting;
     document.querySelector('#distance').textContent = state.delivered ? (state.totalDistance / state.delivered).toFixed(1) : '0.0';
+    document.querySelector('#waitTime').textContent = avgWait + 's';
+    document.querySelector('#eta').textContent = avgEta + 's';
     const efficiency = Math.max(0, Math.round(100 - waiting * 4));
     document.querySelector('#efficiency').textContent = `${efficiency}%`;
     const minutes = Math.floor(state.elapsed / 60).toString().padStart(2, '0');
     const seconds = Math.floor(state.elapsed % 60).toString().padStart(2, '0');
     document.querySelector('#clock').textContent = `${minutes}:${seconds}`;
     document.querySelector('#timelineFill').style.transform = `scaleX(${Math.min(state.elapsed / 180, 1)})`;
+}
+
+function estimateArrival(courier, target) {
+    if (!courier.request) return 0;
+    const route = shortestPath(state.graph, { x: Math.round(courier.x), y: Math.round(courier.y) }, target);
+    let time = 0;
+    for (let i = 0; i < route.length - 1; i++) {
+        const edge = getEdge(state.graph, route[i], route[i + 1]);
+        const traffic = edge ? getEffectiveTraffic(edge) : 0.2;
+        time += (edge ? (edge.weight ?? 1) : 1) * traffic * 222;
+    }
+    return time;
 }
 
 function frame(timestamp) {

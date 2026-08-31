@@ -1,3 +1,10 @@
+function calculateCongestion(from, to) {
+  const corridorBias = (from.x === 3 || from.x === 8 || to.x === 3 || to.x === 8) ? 0.8 : 0;
+  const verticalBias = (from.y === 2 || from.y === 5 || to.y === 2 || to.y === 5) ? 0.5 : 0;
+  const centerBias = (from.x >= 4 && from.x <= 7 && from.y >= 2 && from.y <= 5) ? 0.45 : 0;
+  return 0.2 + corridorBias + verticalBias + centerBias;
+}
+
 export function buildGridGraph({ columns = 12, rows = 8 } = {}) {
   const nodes = [];
   const adjacency = new Map();
@@ -16,12 +23,27 @@ export function buildGridGraph({ columns = 12, rows = 8 } = {}) {
       const current = { x, y };
       const neighbors = adjacency.get(key);
 
-      if (x + 1 < columns) neighbors.push({ x: x + 1, y });
-      if (y + 1 < rows) neighbors.push({ x, y: y + 1 });
-      if (x - 1 >= 0) neighbors.push({ x: x - 1, y });
-      if (y - 1 >= 0) neighbors.push({ x, y: y - 1 });
+      const candidateNeighbors = [
+        { x: x + 1, y },
+        { x, y: y + 1 },
+        { x: x - 1, y },
+        { x, y: y - 1 }
+      ];
 
-      adjacency.set(key, neighbors.filter((neighbor) => JSON.stringify(neighbor) !== JSON.stringify(current)));
+      candidateNeighbors.forEach((neighbor) => {
+        if (neighbor.x < 0 || neighbor.y < 0 || neighbor.x >= columns || neighbor.y >= rows) return;
+        const congestion = calculateCongestion(current, neighbor);
+        neighbors.push({
+          x: neighbor.x,
+          y: neighbor.y,
+          congestion,
+          traffic: 0,
+          baseSpeed: 1,
+          weight: 1 + congestion * 1.8
+        });
+      });
+
+      adjacency.set(key, neighbors.filter((neighbor) => !(neighbor.x === current.x && neighbor.y === current.y)));
     }
   }
 
@@ -30,6 +52,30 @@ export function buildGridGraph({ columns = 12, rows = 8 } = {}) {
 
 export function toNodeKey(node) {
   return `${node.x},${node.y}`;
+}
+
+export function getEdge(graph, from, to) {
+  const fromKey = toNodeKey(from);
+  const toKey = toNodeKey(to);
+  return (graph.adjacency.get(fromKey) ?? []).find((edge) => toNodeKey(edge) === toKey) ?? null;
+}
+
+export function getEffectiveTraffic(edge) {
+  if (!edge) return 0.2;
+  const traffic = Number(edge.traffic ?? 0);
+  const base = Number(edge.congestion ?? 0.2);
+  return Math.min(2.2, Math.max(0.2, base + traffic));
+}
+
+export function recomputeEdgeWeights(graph) {
+  graph.nodes.forEach((node) => {
+    const key = toNodeKey(node);
+    const neighbors = graph.adjacency.get(key) ?? [];
+    neighbors.forEach((edge) => {
+      const traffic = getEffectiveTraffic(edge);
+      edge.weight = 1 + traffic * 1.8;
+    });
+  });
 }
 
 export function nearestNode(graph, point) {
@@ -53,36 +99,55 @@ export function nearestNode(graph, point) {
 export function shortestPath(graph, start, end) {
   const startKey = toNodeKey(start);
   const endKey = toNodeKey(end);
-  const queue = [startKey];
-  const visited = new Set([startKey]);
+  const costs = new Map([[startKey, 0]]);
   const previous = new Map();
+  const queue = [{ key: startKey, cost: 0 }];
 
   while (queue.length > 0) {
-    const currentKey = queue.shift();
-    if (currentKey === endKey) {
-      const route = [];
-      let cursor = currentKey;
-      while (cursor) {
-        const [x, y] = cursor.split(',').map(Number);
-        route.unshift({ x, y });
-        cursor = previous.get(cursor) ?? null;
-      }
-      return route;
-    }
+    queue.sort((a, b) => a.cost - b.cost);
+    const current = queue.shift();
+    const currentKey = current.key;
+    if (currentKey === endKey) break;
 
     for (const neighbor of graph.adjacency.get(currentKey) ?? []) {
-      const neighborKey = toNodeKey(neighbor);
-      if (visited.has(neighborKey)) continue;
-      visited.add(neighborKey);
-      previous.set(neighborKey, currentKey);
-      queue.push(neighborKey);
+      const neighborKey = `${neighbor.x},${neighbor.y}`;
+      const edgeWeight = neighbor.weight ?? 1;
+      const candidateCost = (costs.get(currentKey) ?? Infinity) + edgeWeight;
+
+      if (candidateCost < (costs.get(neighborKey) ?? Infinity)) {
+        costs.set(neighborKey, candidateCost);
+        previous.set(neighborKey, currentKey);
+        queue.push({ key: neighborKey, cost: candidateCost });
+      }
     }
   }
 
-  return [{ ...start }];
+  if (!previous.has(endKey) && startKey !== endKey) {
+    return [{ ...start }];
+  }
+
+  const route = [];
+  let cursor = endKey;
+
+  while (cursor) {
+    const [x, y] = cursor.split(',').map(Number);
+    route.unshift({ x, y });
+    cursor = previous.get(cursor) ?? null;
+  }
+
+  return route.length > 0 ? route : [{ ...start }];
 }
 
 export function nodeDistance(graph, start, end) {
-  const path = shortestPath(graph, start, end);
-  return Math.max(0, path.length - 1);
+  const route = shortestPath(graph, start, end);
+  let total = 0;
+
+  for (let index = 0; index < route.length - 1; index += 1) {
+    const from = route[index];
+    const to = route[index + 1];
+    const edge = getEdge(graph, from, to);
+    total += edge ? (edge.weight ?? 1) : 1;
+  }
+
+  return total;
 }
