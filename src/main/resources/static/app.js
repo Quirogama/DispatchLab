@@ -1,3 +1,5 @@
+import { buildGridGraph, nearestNode, nodeDistance, shortestPath } from './dispatch-logic.js';
+
 const canvas = document.querySelector('#board');
 const context = canvas.getContext('2d');
 const algorithmInput = document.querySelector('#algorithm');
@@ -12,8 +14,8 @@ const grid = { columns: 12, rows: 8 };
 const depots = [{ x: 1, y: 1 }, { x: 10, y: 1 }, { x: 2, y: 6 }, { x: 9, y: 6 }];
 const requestColors = ['#e5684c', '#f09b52', '#c94f59'];
 const algorithmNotes = {
-    nearest: 'Minimizes grid distance from courier to pickup.',
-    priority: 'Serves urgent requests before optimizing distance.',
+    nearest: 'Minimizes street distance from courier to pickup.',
+    priority: 'Serves urgent requests before optimizing travel distance.',
     balanced: 'Spreads work across the fleet to avoid overload.'
 };
 let state;
@@ -23,7 +25,10 @@ let animationFrame;
 function randomStation(exclude) {
     let station;
     do {
-        station = { x: 1 + Math.floor(Math.random() * 10), y: 1 + Math.floor(Math.random() * 6) };
+        station = {
+            x: Math.floor(Math.random() * grid.columns),
+            y: Math.floor(Math.random() * grid.rows)
+        };
     } while (exclude && station.x === exclude.x && station.y === exclude.y);
     return station;
 }
@@ -35,6 +40,7 @@ function createState() {
         elapsed: 0,
         delivered: 0,
         totalDistance: 0,
+        graph: buildGridGraph(grid),
         requests: [],
         couriers: Array.from({ length: courierCount }, (_, index) => ({
             id: index,
@@ -43,17 +49,36 @@ function createState() {
             home: { ...depots[index % depots.length] },
             status: 'idle',
             request: null,
+            route: [],
             distance: 0
         }))
     };
 }
 
-function distance(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
+function distance(a, b) {
+    const start = { x: Math.round(a.x), y: Math.round(a.y) };
+    const end = { x: Math.round(b.x), y: Math.round(b.y) };
+    return nodeDistance(state.graph, start, end);
+}
+
 function demandDelay() { return [2.8, 1.7, 0.85][Number(demandInput.value) - 1]; }
+
+function setCourierRoute(courier, target) {
+    const start = { x: Math.round(courier.x), y: Math.round(courier.y) };
+    const route = shortestPath(state.graph, start, target);
+    courier.route = route.length > 1 ? route.slice(1) : [];
+}
 
 function addRequest(station) {
     const destination = randomStation(station);
-    state.requests.push({ id: Date.now() + Math.random(), pickup: station, destination, priority: 1 + Math.floor(Math.random() * 3), age: 0, color: requestColors[Math.floor(Math.random() * requestColors.length)] });
+    state.requests.push({
+        id: Date.now() + Math.random(),
+        pickup: station,
+        destination,
+        priority: 1 + Math.floor(Math.random() * 3),
+        age: 0,
+        color: requestColors[Math.floor(Math.random() * requestColors.length)]
+    });
     statusLine.textContent = 'New delivery request added to the queue.';
     assignRequests();
     draw();
@@ -78,6 +103,7 @@ function assignRequests() {
         request.assigned = courier.id;
         courier.status = 'to-pickup';
         courier.request = request;
+        courier.route = [];
         const route = distance(courier, request.pickup) + distance(request.pickup, request.destination);
         courier.distance = route;
         state.totalDistance += route;
@@ -86,24 +112,54 @@ function assignRequests() {
 }
 
 function moveCourier(courier, delta) {
+    if (!courier.request) return;
     const target = courier.status === 'to-pickup' ? courier.request.pickup : courier.request.destination;
-    const step = delta * 0.0028;
-    const dx = target.x - courier.x;
-    const dy = target.y - courier.y;
-    const length = Math.hypot(dx, dy);
-    if (length < step) {
+    if (!courier.route || courier.route.length === 0) {
+        setCourierRoute(courier, target);
+    }
+
+    if (!courier.route || courier.route.length === 0) {
         courier.x = target.x;
         courier.y = target.y;
-        if (courier.status === 'to-pickup') courier.status = 'delivering';
-        else {
+        if (courier.status === 'to-pickup') {
+            courier.status = 'delivering';
+            setCourierRoute(courier, courier.request.destination);
+        } else {
             state.delivered += 1;
             state.requests = state.requests.filter(request => request !== courier.request);
             courier.request = null;
             courier.status = 'idle';
+            courier.route = [];
+        }
+        return;
+    }
+
+    const next = courier.route[0];
+    const dx = next.x - courier.x;
+    const dy = next.y - courier.y;
+    const segmentLength = Math.hypot(dx, dy);
+    const step = delta * 0.018;
+
+    if (segmentLength <= step) {
+        courier.x = next.x;
+        courier.y = next.y;
+        courier.route.shift();
+
+        if (courier.route.length === 0) {
+            if (courier.status === 'to-pickup') {
+                courier.status = 'delivering';
+                setCourierRoute(courier, courier.request.destination);
+            } else {
+                state.delivered += 1;
+                state.requests = state.requests.filter(request => request !== courier.request);
+                courier.request = null;
+                courier.status = 'idle';
+                courier.route = [];
+            }
         }
     } else {
-        courier.x += (dx / length) * step;
-        courier.y += (dy / length) * step;
+        courier.x += (dx / segmentLength) * step;
+        courier.y += (dy / segmentLength) * step;
     }
 }
 
@@ -126,14 +182,50 @@ function resizeCanvas() {
     draw();
 }
 
-function point(station, width, height) { return { x: (station.x + 0.5) * width / grid.columns, y: (station.y + 0.5) * height / grid.rows }; }
-function roundedRect(x, y, width, height, radius) { context.beginPath(); context.roundRect(x, y, width, height, radius); }
+function point(station, width, height) {
+    return { x: (station.x + 0.5) * width / grid.columns, y: (station.y + 0.5) * height / grid.rows };
+}
+
+function drawStreetNetwork(width, height) {
+    context.strokeStyle = '#d6d0bf';
+    context.lineWidth = 1;
+    context.globalAlpha = 0.9;
+
+    for (let x = 0; x < grid.columns; x += 1) {
+        const start = point({ x, y: 0 }, width, height);
+        const end = point({ x, y: grid.rows - 1 }, width, height);
+        context.beginPath();
+        context.moveTo(start.x, start.y);
+        context.lineTo(end.x, end.y);
+        context.stroke();
+    }
+
+    for (let y = 0; y < grid.rows; y += 1) {
+        const start = point({ x: 0, y }, width, height);
+        const end = point({ x: grid.columns - 1, y }, width, height);
+        context.beginPath();
+        context.moveTo(start.x, start.y);
+        context.lineTo(end.x, end.y);
+        context.stroke();
+    }
+
+    context.globalAlpha = 1;
+    context.fillStyle = 'rgba(22, 139, 131, 0.08)';
+    state.graph.nodes.forEach(node => {
+        const pointOnMap = point(node, width, height);
+        context.beginPath();
+        context.arc(pointOnMap.x, pointOnMap.y, 3, 0, Math.PI * 2);
+        context.fill();
+    });
+}
 
 function draw() {
     const width = canvas.clientWidth;
     const height = width * 0.58;
     context.clearRect(0, 0, width, height);
     context.lineCap = 'round';
+    drawStreetNetwork(width, height);
+
     depots.forEach(depot => {
         const depotPoint = point(depot, width, height);
         context.fillStyle = '#168b83';
@@ -141,6 +233,7 @@ function draw() {
         context.fillStyle = '#fffdf8';
         context.fillRect(depotPoint.x - 4, depotPoint.y - 4, 8, 8);
     });
+
     state.requests.forEach(request => {
         const pickup = point(request.pickup, width, height);
         const destination = point(request.destination, width, height);
@@ -148,18 +241,27 @@ function draw() {
         context.globalAlpha = 0.35;
         context.setLineDash([4, 5]);
         context.lineWidth = 2;
-        context.beginPath(); context.moveTo(pickup.x, pickup.y); context.lineTo(destination.x, destination.y); context.stroke();
-        context.setLineDash([]); context.globalAlpha = 1;
+        context.beginPath();
+        context.moveTo(pickup.x, pickup.y);
+        context.lineTo(destination.x, destination.y);
+        context.stroke();
+        context.setLineDash([]);
+        context.globalAlpha = 1;
         context.fillStyle = request.color;
         context.fillRect(pickup.x - 8, pickup.y - 8, 16, 16);
         context.fillStyle = '#fffdf8';
         context.fillRect(destination.x - 5, destination.y - 5, 10, 10);
     });
+
     state.couriers.forEach(courier => {
         const courierPoint = point(courier, width, height);
         context.fillStyle = '#4e7cc1';
-        context.beginPath(); context.arc(courierPoint.x, courierPoint.y, 7, 0, Math.PI * 2); context.fill();
-        context.strokeStyle = '#fffdf8'; context.lineWidth = 2; context.stroke();
+        context.beginPath();
+        context.arc(courierPoint.x, courierPoint.y, 7, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = '#fffdf8';
+        context.lineWidth = 2;
+        context.stroke();
     });
 }
 
@@ -204,12 +306,28 @@ function reset() {
     animationFrame = requestAnimationFrame(frame);
 }
 
-algorithmInput.addEventListener('change', () => { algorithmNote.textContent = algorithmNotes[algorithmInput.value]; assignRequests(); draw(); });
-demandInput.addEventListener('input', () => { document.querySelector('#demandValue').textContent = ['Low', 'Medium', 'High'][Number(demandInput.value) - 1]; });
-courierInput.addEventListener('input', () => { document.querySelector('#courierValue').textContent = `${courierInput.value} riders`; reset(); });
+algorithmInput.addEventListener('change', () => {
+    algorithmNote.textContent = algorithmNotes[algorithmInput.value];
+    assignRequests();
+    draw();
+});
+demandInput.addEventListener('input', () => {
+    document.querySelector('#demandValue').textContent = ['Low', 'Medium', 'High'][Number(demandInput.value) - 1];
+});
+courierInput.addEventListener('input', () => {
+    document.querySelector('#courierValue').textContent = `${courierInput.value} riders`;
+    reset();
+});
 playButton.addEventListener('click', toggleRunning);
 resetButton.addEventListener('click', reset);
-canvas.addEventListener('click', event => { const bounds = canvas.getBoundingClientRect(); addRequest({ x: Math.max(1, Math.min(10, Math.floor((event.clientX - bounds.left) / bounds.width * grid.columns))), y: Math.max(1, Math.min(6, Math.floor((event.clientY - bounds.top) / bounds.height * grid.rows))) }); });
+canvas.addEventListener('click', event => {
+    const bounds = canvas.getBoundingClientRect();
+    const pointer = {
+        x: (event.clientX - bounds.left) / bounds.width * grid.columns,
+        y: (event.clientY - bounds.top) / bounds.height * grid.rows
+    };
+    addRequest(nearestNode(state.graph, pointer));
+});
 window.addEventListener('resize', resizeCanvas);
 state = createState();
 resizeCanvas();
