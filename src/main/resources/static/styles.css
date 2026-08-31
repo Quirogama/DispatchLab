@@ -32,9 +32,15 @@ h2 { font-size: 20px; margin-bottom: 0; }
 .legend span { align-items: center; display: flex; gap: 6px; }
 .legend-dot { border-radius: 50%; display: inline-block; height: 8px; width: 8px; }
 .legend-dot.depot { background: var(--teal); }.legend-dot.request { background: var(--coral); }.legend-dot.courier { background: var(--blue); }
-.board-wrap { background-color: #e8eee9; background-image: linear-gradient(#d4dfdb 1px, transparent 1px), linear-gradient(90deg, #d4dfdb 1px, transparent 1px); background-size: 8.333% 12.5%; position: relative; }
+.board-wrap {
+    background: radial-gradient(circle at top, rgba(255,255,255,0.8), rgba(233,240,235,0.8));
+    border: 1px solid rgba(24, 35, 41, 0.08);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.7);
+    overflow: hidden;
+    position: relative;
+}
 canvas { cursor: crosshair; display: block; height: auto; width: 100%; }
-.board-hint { bottom: 12px; color: #758b88; font: 11px 'DM Mono', monospace; left: 16px; pointer-events: none; position: absolute; }
+.board-hint { bottom: 12px; color: #5f756f; font: 11px 'DM Mono', monospace; left: 16px; letter-spacing: 0.08em; pointer-events: none; position: absolute; text-transform: uppercase; }
 .timeline { align-items: center; display: flex; gap: 12px; margin-top: 22px; }
 .timeline-label { color: var(--muted); font: 11px 'DM Mono', monospace; white-space: nowrap; }.timeline-label strong { color: var(--ink); font-weight: 500; }
 .timeline-track { background: #e2e4db; height: 5px; overflow: hidden; width: 100%; }.timeline-track span { background: var(--coral); display: block; height: 100%; transform-origin: left; width: 0; }

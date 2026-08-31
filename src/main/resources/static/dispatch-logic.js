@@ -33,9 +33,21 @@ export function toNodeKey(node) {
 }
 
 export function nearestNode(graph, point) {
-  const x = Math.min(graph.columns - 1, Math.max(0, Math.round(point.x * (graph.columns - 1))));
-  const y = Math.min(graph.rows - 1, Math.max(0, Math.round(point.y * (graph.rows - 1))));
-  return { x, y };
+  let best = { x: 0, y: 0 };
+  let bestDistance = Infinity;
+
+  for (const node of graph.nodes) {
+    const dx = node.x - point.x;
+    const dy = node.y - point.y;
+    const distance = (dx * dx) + (dy * dy);
+
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      best = { x: node.x, y: node.y };
+    }
+  }
+
+  return best;
 }
 
 export function shortestPath(graph, start, end) {

@@ -69,12 +69,11 @@ function setCourierRoute(courier, target) {
     courier.route = route.length > 1 ? route.slice(1) : [];
 }
 
-function addRequest(station) {
-    const destination = randomStation(station);
+function addRequest(station, destination = randomStation(station)) {
     state.requests.push({
         id: Date.now() + Math.random(),
-        pickup: station,
-        destination,
+        pickup: { ...station },
+        destination: { ...destination },
         priority: 1 + Math.floor(Math.random() * 3),
         age: 0,
         color: requestColors[Math.floor(Math.random() * requestColors.length)]
@@ -138,7 +137,7 @@ function moveCourier(courier, delta) {
     const dx = next.x - courier.x;
     const dy = next.y - courier.y;
     const segmentLength = Math.hypot(dx, dy);
-    const step = delta * 0.018;
+    const step = delta * 0.0045;
 
     if (segmentLength <= step) {
         courier.x = next.x;
@@ -187,9 +186,12 @@ function point(station, width, height) {
 }
 
 function drawStreetNetwork(width, height) {
-    context.strokeStyle = '#d6d0bf';
-    context.lineWidth = 1;
-    context.globalAlpha = 0.9;
+    context.fillStyle = '#edf2ee';
+    context.fillRect(0, 0, width, height);
+
+    context.strokeStyle = '#bfd0ca';
+    context.lineWidth = 1.2;
+    context.globalAlpha = 0.95;
 
     for (let x = 0; x < grid.columns; x += 1) {
         const start = point({ x, y: 0 }, width, height);
@@ -210,12 +212,15 @@ function drawStreetNetwork(width, height) {
     }
 
     context.globalAlpha = 1;
-    context.fillStyle = 'rgba(22, 139, 131, 0.08)';
+    context.fillStyle = '#edf3f1';
+    context.strokeStyle = '#7ea09b';
+    context.lineWidth = 1.1;
     state.graph.nodes.forEach(node => {
         const pointOnMap = point(node, width, height);
         context.beginPath();
-        context.arc(pointOnMap.x, pointOnMap.y, 3, 0, Math.PI * 2);
+        context.arc(pointOnMap.x, pointOnMap.y, 4.2, 0, Math.PI * 2);
         context.fill();
+        context.stroke();
     });
 }
 
@@ -238,30 +243,42 @@ function draw() {
         const pickup = point(request.pickup, width, height);
         const destination = point(request.destination, width, height);
         context.strokeStyle = request.color;
-        context.globalAlpha = 0.35;
-        context.setLineDash([4, 5]);
-        context.lineWidth = 2;
+        context.globalAlpha = 0.7;
+        context.setLineDash([5, 6]);
+        context.lineWidth = 2.5;
         context.beginPath();
         context.moveTo(pickup.x, pickup.y);
         context.lineTo(destination.x, destination.y);
         context.stroke();
         context.setLineDash([]);
         context.globalAlpha = 1;
+
         context.fillStyle = request.color;
-        context.fillRect(pickup.x - 8, pickup.y - 8, 16, 16);
+        context.beginPath();
+        context.arc(pickup.x, pickup.y, 10, 0, Math.PI * 2);
+        context.fill();
+
         context.fillStyle = '#fffdf8';
-        context.fillRect(destination.x - 5, destination.y - 5, 10, 10);
+        context.beginPath();
+        context.arc(destination.x, destination.y, 6, 0, Math.PI * 2);
+        context.fill();
+        context.strokeStyle = request.color;
+        context.lineWidth = 2;
+        context.stroke();
     });
 
     state.couriers.forEach(courier => {
         const courierPoint = point(courier, width, height);
-        context.fillStyle = '#4e7cc1';
-        context.beginPath();
-        context.arc(courierPoint.x, courierPoint.y, 7, 0, Math.PI * 2);
-        context.fill();
+        const size = 12;
+
+        context.fillStyle = '#3c6ecf';
+        context.shadowColor = 'rgba(60, 110, 207, 0.35)';
+        context.shadowBlur = 10;
+        context.fillRect(courierPoint.x - size / 2, courierPoint.y - size / 2, size, size);
+        context.shadowBlur = 0;
         context.strokeStyle = '#fffdf8';
         context.lineWidth = 2;
-        context.stroke();
+        context.strokeRect(courierPoint.x - size / 2, courierPoint.y - size / 2, size, size);
     });
 }
 
@@ -323,10 +340,29 @@ resetButton.addEventListener('click', reset);
 canvas.addEventListener('click', event => {
     const bounds = canvas.getBoundingClientRect();
     const pointer = {
-        x: (event.clientX - bounds.left) / bounds.width * grid.columns,
-        y: (event.clientY - bounds.top) / bounds.height * grid.rows
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top
     };
-    addRequest(nearestNode(state.graph, pointer));
+    const width = canvas.clientWidth;
+    const height = canvas.clientHeight;
+    let closestNode = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    state.graph.nodes.forEach(node => {
+        const center = point(node, width, height);
+        const dx = pointer.x - center.x;
+        const dy = pointer.y - center.y;
+        const distance = (dx * dx) + (dy * dy);
+
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestNode = node;
+        }
+    });
+
+    const pickup = closestNode ? { x: closestNode.x, y: closestNode.y } : nearestNode(state.graph, { x: 0, y: 0 });
+    const destination = randomStation(pickup);
+    addRequest(pickup, destination);
 });
 window.addEventListener('resize', resizeCanvas);
 state = createState();
