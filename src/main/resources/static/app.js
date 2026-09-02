@@ -305,9 +305,15 @@ function draw() {
         const currentEdge = nextNode ? getEdge(state.graph, currentNode, nextNode) : null;
         const trafficLevel = currentEdge ? getEffectiveTraffic(currentEdge) : 0.2;
         const isInTraffic = trafficLevel > 0.8;
+        const isCarryingOrder = courier.status === 'delivering';
+        const courierColor = isCarryingOrder ? '#f4c95d' : '#3c6ecf';
 
-        context.fillStyle = '#3c6ecf';
-        context.shadowColor = isInTraffic ? 'rgba(217, 108, 77, 0.5)' : 'rgba(60, 110, 207, 0.35)';
+        context.fillStyle = courierColor;
+        context.shadowColor = isInTraffic
+            ? 'rgba(217, 108, 77, 0.5)'
+            : isCarryingOrder
+                ? 'rgba(244, 201, 93, 0.55)'
+                : 'rgba(60, 110, 207, 0.35)';
         context.shadowBlur = isInTraffic ? 15 : 10;
         context.globalAlpha = isInTraffic ? 0.75 : 1;
         context.fillRect(courierPoint.x - size / 2, courierPoint.y - size / 2, size, size);

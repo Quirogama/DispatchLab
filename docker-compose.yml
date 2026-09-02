@@ -1,0 +1,9 @@
+services:
+  dispatchlab:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dispatchlab
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
