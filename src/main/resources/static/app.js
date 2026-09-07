@@ -13,14 +13,17 @@ const algorithmNote = document.querySelector('#algorithmNote');
 const grid = { columns: 12, rows: 8 };
 const depots = [{ x: 1, y: 1 }, { x: 10, y: 1 }, { x: 2, y: 6 }, { x: 9, y: 6 }];
 const requestColors = ['#e5684c', '#f09b52', '#c94f59'];
+const courierNames = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
 const algorithmNotes = {
     nearest: 'Minimizes street distance from courier to pickup.',
     priority: 'Serves urgent requests before optimizing travel distance.',
-    balanced: 'Spreads work across the fleet to avoid overload.'
+    balanced: 'Spreads work across the fleet to avoid overload.',
+    traffic: 'Chooses the courier with the fastest route through current traffic.'
 };
 let state;
 let lastFrame = 0;
 let animationFrame;
+const experimentResults = [];
 
 function randomStation(exclude) {
     let station;
@@ -50,7 +53,15 @@ function createState() {
             status: 'idle',
             request: null,
             route: [],
-            distance: 0
+            distance: 0,
+            profile: {
+                name: courierNames[index % courierNames.length],
+                completedOrders: 0,
+                totalPickupTime: 0,
+                totalDeliveryTime: 0,
+                totalDistance: 0,
+                rating: 5.0
+            }
         }))
     };
 }
@@ -76,6 +87,7 @@ function addRequest(station, destination = randomStation(station)) {
         destination: { ...destination },
         priority: 1 + Math.floor(Math.random() * 3),
         age: 0,
+        createdAt: state.elapsed,
         color: requestColors[Math.floor(Math.random() * requestColors.length)]
     });
     statusLine.textContent = 'New delivery request added to the queue.';
@@ -88,10 +100,73 @@ function spawnRequest() {
     addRequest(randomStation());
 }
 
+function roadDistance(from, to) {
+    const startKey = `${Math.round(from.x)},${Math.round(from.y)}`;
+    const targetKey = `${Math.round(to.x)},${Math.round(to.y)}`;
+    const queue = [{ key: startKey, distance: 0 }];
+    const visited = new Set([startKey]);
+
+    while (queue.length > 0) {
+        const current = queue.shift();
+        if (current.key === targetKey) return current.distance;
+
+        (state.graph.adjacency.get(current.key) ?? []).forEach(edge => {
+            const nextKey = `${edge.x},${edge.y}`;
+            if (visited.has(nextKey)) return;
+            visited.add(nextKey);
+            queue.push({ key: nextKey, distance: current.distance + 1 });
+        });
+    }
+
+    return Number.POSITIVE_INFINITY;
+}
+
+function trafficTravelTime(from, to) {
+    const start = { x: Math.round(from.x), y: Math.round(from.y) };
+    const target = { x: Math.round(to.x), y: Math.round(to.y) };
+    const route = shortestPath(state.graph, start, target);
+    let totalTime = 0;
+
+    for (let index = 0; index < route.length - 1; index += 1) {
+        const edge = getEdge(state.graph, route[index], route[index + 1]);
+        const traffic = edge ? getEffectiveTraffic(edge) : 0.2;
+        totalTime += (edge?.weight ?? 1) * traffic;
+    }
+
+    return totalTime;
+}
+
+function updateCourierRating(courier, request) {
+    const pickupTime = request.pickedUpAt - request.assignedAt;
+    const deliveryTime = request.deliveredAt - request.pickedUpAt;
+    const pickupScore = Math.max(0, 1 - pickupTime / 90);
+    const deliveryScore = Math.max(0, 1 - deliveryTime / 180);
+    const orderRating = 3 + ((pickupScore + deliveryScore) / 2) * 2;
+    const completed = courier.profile.completedOrders;
+    courier.profile.rating = ((courier.profile.rating * completed) + orderRating) / (completed + 1);
+    courier.profile.completedOrders += 1;
+    courier.profile.totalPickupTime += pickupTime;
+    courier.profile.totalDeliveryTime += deliveryTime;
+}
+
 function chooseCourier(request, available) {
-    if (algorithmInput.value === 'priority') available.sort((a, b) => b.priority - a.priority);
-    if (algorithmInput.value === 'balanced') available.sort((a, b) => a.distance - b.distance);
-    return available.sort((a, b) => distance(a, request.pickup) - distance(b, request.pickup))[0];
+    if (algorithmInput.value === 'traffic') {
+        return [...available].sort((a, b) => {
+            return trafficTravelTime(a, request.pickup) - trafficTravelTime(b, request.pickup);
+        })[0];
+    }
+
+    if (algorithmInput.value === 'balanced') {
+        return [...available].sort((a, b) => {
+            const workloadA = (a.profile.completedOrders * 10) + roadDistance(a, request.pickup);
+            const workloadB = (b.profile.completedOrders * 10) + roadDistance(b, request.pickup);
+            return workloadA - workloadB;
+        })[0];
+    }
+
+    return [...available].sort((a, b) => {
+        return roadDistance(a, request.pickup) - roadDistance(b, request.pickup);
+    })[0];
 }
 
 function assignRequests() {
@@ -100,11 +175,13 @@ function assignRequests() {
         const courier = chooseCourier(request, available);
         if (!courier) return;
         request.assigned = courier.id;
+        request.assignedAt = state.elapsed;
         courier.status = 'to-pickup';
         courier.request = request;
         courier.route = [];
         const route = distance(courier, request.pickup) + distance(request.pickup, request.destination);
         courier.distance = route;
+        courier.profile.totalDistance += route;
         state.totalDistance += route;
         available.splice(available.indexOf(courier), 1);
     });
@@ -121,9 +198,12 @@ function moveCourier(courier, delta) {
         courier.x = target.x;
         courier.y = target.y;
         if (courier.status === 'to-pickup') {
+            courier.request.pickedUpAt = state.elapsed;
             courier.status = 'delivering';
             setCourierRoute(courier, courier.request.destination);
         } else {
+            courier.request.deliveredAt = state.elapsed;
+            updateCourierRating(courier, courier.request);
             state.delivered += 1;
             state.requests = state.requests.filter(request => request !== courier.request);
             courier.request = null;
@@ -151,9 +231,12 @@ function moveCourier(courier, delta) {
 
         if (courier.route.length === 0) {
             if (courier.status === 'to-pickup') {
+                courier.request.pickedUpAt = state.elapsed;
                 courier.status = 'delivering';
                 setCourierRoute(courier, courier.request.destination);
             } else {
+                courier.request.deliveredAt = state.elapsed;
+                updateCourierRating(courier, courier.request);
                 state.delivered += 1;
                 state.requests = state.requests.filter(request => request !== courier.request);
                 courier.request = null;
@@ -345,6 +428,7 @@ function updateMetrics() {
     document.querySelector('#eta').textContent = avgEta + 's';
     const efficiency = Math.max(0, Math.round(100 - waiting * 4));
     document.querySelector('#efficiency').textContent = `${efficiency}%`;
+    renderFleet();
     const minutes = Math.floor(state.elapsed / 60).toString().padStart(2, '0');
     const seconds = Math.floor(state.elapsed % 60).toString().padStart(2, '0');
     document.querySelector('#clock').textContent = `${minutes}:${seconds}`;
@@ -361,6 +445,61 @@ function estimateArrival(courier, target) {
         time += (edge ? (edge.weight ?? 1) : 1) * traffic * 222;
     }
     return time;
+}
+
+function courierStatusLabel(courier) {
+    if (courier.status === 'to-pickup') return 'Heading to pickup';
+    if (courier.status === 'delivering') return 'Delivering order';
+    return 'Available';
+}
+
+function renderFleet() {
+    const fleetList = document.querySelector('#fleetList');
+    fleetList.innerHTML = state.couriers.map(courier => `
+        <div class="fleet-row">
+            <span class="fleet-marker ${courier.status}"></span>
+            <div class="fleet-identity">
+                <strong>${courier.profile.name}</strong>
+                <span>${courierStatusLabel(courier)}</span>
+            </div>
+            <div class="fleet-stats">
+                <strong>${courier.profile.rating.toFixed(1)}</strong>
+                <span>${courier.profile.completedOrders} delivered</span>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderResults() {
+    const resultsList = document.querySelector('#resultsList');
+    resultsList.innerHTML = experimentResults.length === 0
+        ? '<p class="empty-results">Run a scenario and record its result.</p>'
+        : experimentResults.map(result => `
+            <div class="result-row">
+                <strong>${result.algorithm}</strong>
+                <span>${result.delivered} delivered</span>
+                <span>${result.pickupTime}s pickup</span>
+                <span>${result.rating} rating</span>
+            </div>
+        `).join('');
+}
+
+function recordResult() {
+    const completedCouriers = state.couriers.filter(courier => courier.profile.completedOrders > 0);
+    const completedOrders = state.delivered;
+    const pickupTime = completedCouriers.reduce((total, courier) => total + courier.profile.totalPickupTime, 0);
+    const averageRating = completedCouriers.length > 0
+        ? completedCouriers.reduce((total, courier) => total + courier.profile.rating, 0) / completedCouriers.length
+        : 0;
+
+    experimentResults.push({
+        algorithm: algorithmInput.options[algorithmInput.selectedIndex].text,
+        delivered: completedOrders,
+        pickupTime: completedOrders > 0 ? (pickupTime / completedOrders).toFixed(1) : '0.0',
+        rating: averageRating.toFixed(1)
+    });
+    renderResults();
+    statusLine.textContent = 'Run recorded for strategy comparison.';
 }
 
 function frame(timestamp) {
@@ -405,6 +544,7 @@ courierInput.addEventListener('input', () => {
 });
 playButton.addEventListener('click', toggleRunning);
 resetButton.addEventListener('click', reset);
+document.querySelector('#recordButton').addEventListener('click', recordResult);
 canvas.addEventListener('click', event => {
     const bounds = canvas.getBoundingClientRect();
     const pointer = {
@@ -436,4 +576,5 @@ window.addEventListener('resize', resizeCanvas);
 state = createState();
 resizeCanvas();
 updateMetrics();
+renderResults();
 animationFrame = requestAnimationFrame(frame);
