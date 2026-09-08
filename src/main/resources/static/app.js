@@ -10,8 +10,9 @@ const resetButton = document.querySelector('#resetButton');
 const runState = document.querySelector('#runState');
 const statusLine = document.querySelector('#statusLine');
 const algorithmNote = document.querySelector('#algorithmNote');
-const grid = { columns: 12, rows: 8 };
-const depots = [{ x: 1, y: 1 }, { x: 10, y: 1 }, { x: 2, y: 6 }, { x: 9, y: 6 }];
+const grid = { columns: 15, rows: 6 };
+const canvasRatio = grid.rows / grid.columns;
+const depots = [{ x: 1, y: 1 }, { x: 13, y: 1 }, { x: 2, y: 4 }, { x: 12, y: 4 }];
 const requestColors = ['#e5684c', '#f09b52', '#c94f59'];
 const courierNames = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
 const algorithmNotes = {
@@ -280,8 +281,8 @@ function resizeCanvas() {
     const bounds = canvas.getBoundingClientRect();
     const ratio = window.devicePixelRatio || 1;
     canvas.width = bounds.width * ratio;
-    canvas.height = bounds.width * 0.58 * ratio;
-    canvas.style.height = `${bounds.width * 0.58}px`;
+    canvas.height = bounds.width * canvasRatio * ratio;
+    canvas.style.height = `${bounds.width * canvasRatio}px`;
     context.setTransform(ratio, 0, 0, ratio, 0, 0);
     draw();
 }
@@ -337,7 +338,7 @@ function drawStreetNetwork(width, height) {
 
 function draw() {
     const width = canvas.clientWidth;
-    const height = width * 0.58;
+    const height = width * canvasRatio;
     context.clearRect(0, 0, width, height);
     context.lineCap = 'round';
     drawStreetNetwork(width, height);
