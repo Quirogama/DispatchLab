@@ -25,13 +25,26 @@ let state;
 let lastFrame = 0;
 let animationFrame;
 const experimentResults = [];
+let benchmarkMode = false;
+
+function createRandom(seed) {
+    let value = Number(seed) >>> 0;
+    return () => {
+        value = (value * 1664525 + 1013904223) >>> 0;
+        return value / 4294967296;
+    };
+}
+
+function random() {
+    return state.random();
+}
 
 function randomStation(exclude) {
     let station;
     do {
         station = {
-            x: Math.floor(Math.random() * grid.columns),
-            y: Math.floor(Math.random() * grid.rows)
+            x: Math.floor(random() * grid.columns),
+            y: Math.floor(random() * grid.rows)
         };
     } while (exclude && station.x === exclude.x && station.y === exclude.y);
     return station;
@@ -39,11 +52,14 @@ function randomStation(exclude) {
 
 function createState() {
     const courierCount = Number(courierInput.value);
+    const seed = Number(document.querySelector('#seed').value) || 90210;
     return {
         running: false,
         elapsed: 0,
         delivered: 0,
         totalDistance: 0,
+        seed,
+        random: createRandom(seed),
         graph: buildGridGraph(grid),
         requests: [],
         couriers: Array.from({ length: courierCount }, (_, index) => ({
@@ -83,17 +99,17 @@ function setCourierRoute(courier, target) {
 
 function addRequest(station, destination = randomStation(station)) {
     state.requests.push({
-        id: Date.now() + Math.random(),
+        id: `${state.seed}-${state.elapsed}-${state.requests.length}`,
         pickup: { ...station },
         destination: { ...destination },
-        priority: 1 + Math.floor(Math.random() * 3),
+        priority: 1 + Math.floor(random() * 3),
         age: 0,
         createdAt: state.elapsed,
-        color: requestColors[Math.floor(Math.random() * requestColors.length)]
+        color: requestColors[Math.floor(random() * requestColors.length)]
     });
-    statusLine.textContent = 'New delivery request added to the queue.';
+    if (!benchmarkMode) statusLine.textContent = 'New delivery request added to the queue.';
     assignRequests();
-    draw();
+    if (!benchmarkMode) draw();
 }
 
 function spawnRequest() {
@@ -252,6 +268,7 @@ function moveCourier(courier, delta) {
 }
 
 function updateTraffic() {
+    const trafficRamp = Math.min(state.elapsed / 20, 1);
     state.graph.nodes.forEach(node => {
         const key = `${node.x},${node.y}`;
         const neighbors = state.graph.adjacency.get(key) ?? [];
@@ -260,7 +277,8 @@ function updateTraffic() {
             const corridorPulse = (edge.x === 3 || edge.x === 8 || edge.y === 2 || edge.y === 5) ? 0.45 : 0;
             const centerPulse = (node.x >= 4 && node.x <= 7 && node.y >= 2 && node.y <= 5) ? 0.3 : 0;
             const wave = Math.sin((state.elapsed * 1.8) + (node.x * 1.7) + (edge.y * 1.1)) * 0.35;
-            edge.traffic = Math.max(0, Math.min(1.2, 0.1 + wave + corridorPulse + centerPulse));
+            const targetTraffic = Math.max(0, Math.min(1.2, 0.1 + wave + corridorPulse + centerPulse)) * trafficRamp;
+            edge.traffic += (targetTraffic - edge.traffic) * 0.025;
         });
     });
 
@@ -274,7 +292,7 @@ function update(delta) {
     state.requests.forEach(request => { request.age += delta / 1000; });
     state.couriers.forEach(courier => { if (courier.status !== 'idle') moveCourier(courier, delta); });
     assignRequests();
-    updateMetrics();
+    if (!benchmarkMode) updateMetrics();
 }
 
 function resizeCanvas() {
@@ -503,6 +521,45 @@ function recordResult() {
     statusLine.textContent = 'Run recorded for strategy comparison.';
 }
 
+function runComparison() {
+    const liveState = state;
+    const liveAlgorithm = algorithmInput.value;
+    const liveRunning = state.running;
+    const algorithms = ['nearest', 'priority', 'balanced', 'traffic'];
+    const benchmarkResults = [];
+
+    benchmarkMode = true;
+    algorithms.forEach(algorithm => {
+        algorithmInput.value = algorithm;
+        state = createState();
+        state.running = true;
+
+        for (let frame = 0; frame < 900; frame += 1) update(100);
+
+        const completedCouriers = state.couriers.filter(courier => courier.profile.completedOrders > 0);
+        const pickupTime = completedCouriers.reduce((total, courier) => total + courier.profile.totalPickupTime, 0);
+        const averageRating = completedCouriers.length > 0
+            ? completedCouriers.reduce((total, courier) => total + courier.profile.rating, 0) / completedCouriers.length
+            : 0;
+        benchmarkResults.push({
+            algorithm: algorithmInput.options[algorithmInput.selectedIndex].text,
+            delivered: state.delivered,
+            pickupTime: state.delivered > 0 ? (pickupTime / state.delivered).toFixed(1) : '0.0',
+            rating: averageRating.toFixed(1)
+        });
+    });
+
+    state = liveState;
+    algorithmInput.value = liveAlgorithm;
+    state.running = liveRunning;
+    benchmarkMode = false;
+    experimentResults.splice(0, experimentResults.length, ...benchmarkResults);
+    renderResults();
+    updateMetrics();
+    draw();
+    statusLine.textContent = 'Comparison complete: same seed, four strategies.';
+}
+
 function frame(timestamp) {
     const delta = Math.min(timestamp - lastFrame, 80);
     lastFrame = timestamp;
@@ -539,6 +596,7 @@ algorithmInput.addEventListener('change', () => {
 demandInput.addEventListener('input', () => {
     document.querySelector('#demandValue').textContent = ['Low', 'Medium', 'High'][Number(demandInput.value) - 1];
 });
+document.querySelector('#seed').addEventListener('change', reset);
 courierInput.addEventListener('input', () => {
     document.querySelector('#courierValue').textContent = `${courierInput.value} riders`;
     reset();
@@ -546,6 +604,7 @@ courierInput.addEventListener('input', () => {
 playButton.addEventListener('click', toggleRunning);
 resetButton.addEventListener('click', reset);
 document.querySelector('#recordButton').addEventListener('click', recordResult);
+document.querySelector('#compareButton').addEventListener('click', runComparison);
 canvas.addEventListener('click', event => {
     const bounds = canvas.getBoundingClientRect();
     const pointer = {
