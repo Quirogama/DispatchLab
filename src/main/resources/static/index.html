@@ -9,22 +9,55 @@
 <body class="overview-page">
     <main class="overview-shell">
         <header class="overview-header">
-            <p class="eyebrow">DISPATCHLAB / FIELD STUDY 01</p>
-            <div class="overview-mark">DL</div>
+            <a class="overview-logo" href="/">DISPATCH<span>LAB</span></a>
+            <nav class="overview-nav" aria-label="Main navigation">
+                <a href="#about">The experiment</a>
+                <a href="/simulator.html">Open simulator <span>↗</span></a>
+            </nav>
         </header>
         <section class="overview-hero">
-            <p class="eyebrow">A LAB FOR URBAN MOVEMENT</p>
-            <h1>Dispatch the city.<br><em>See what changes.</em></h1>
-            <a class="launch-button" href="/simulator.html"><span>+</span> Enter the city</a>
-        </section>
-        <section class="overview-explanation">
-            <div>
-                <p class="eyebrow">WHY IT EXISTS</p>
-                <h2>Every order is a decision.</h2>
+            <div class="hero-heading">
+                <p class="eyebrow">FIELD STUDY 01 / URBAN LOGISTICS</p>
+                <h1>What if every <em>delivery</em><br>changed the city?</h1>
             </div>
-            <p>DispatchLab simulates couriers moving through a living street network. Compare a simple nearest-courier decision with strategies that account for priorities, workload, and traffic.</p>
+            <div class="hero-stage">
+                <div class="mini-dispatch" aria-label="Animated miniature dispatch simulation">
+                    <div class="field-topline"><span>LIVE CITY MODEL / 5 × 3</span><span>NOW</span></div>
+                    <div class="mini-map">
+                        <div class="city-surface">
+                            <div class="grid-lines"></div>
+                            <span class="mini-node node-a"></span><span class="mini-node node-b"></span><span class="mini-node node-c"></span><span class="mini-node node-d"></span><span class="mini-node node-e"></span><span class="mini-node node-f"></span>
+                            <span class="mini-node node-g"></span><span class="mini-node node-h"></span><span class="mini-node node-i"></span><span class="mini-node node-j"></span><span class="mini-node node-k"></span><span class="mini-node node-l"></span>
+                            <span class="mini-order order-a"></span><span class="mini-order order-b"></span>
+                            <span class="mini-courier courier-a"></span><span class="mini-courier courier-b"></span>
+                            <div class="mini-toast toast-a">ORDER 024 <b>URGENT</b></div>
+                            <div class="mini-toast toast-b">COURIER 07 <b>EN ROUTE</b></div>
+                        </div>
+                    </div>
+                    <div class="mini-caption"><span><i class="pulse-dot"></i> routing in progress</span><span>4 couriers / 12 orders</span></div>
+                </div>
+                <div class="hero-copy">
+                    <p class="hero-lede">A living dispatch lab for testing how algorithms move people, packages, and pressure through a city.</p>
+                    <a class="launch-button" href="/simulator.html"><span>+</span> Enter the simulation <b>↗</b></a>
+                    <p class="hero-note"><span class="live-dot"></span> Simulation ready <span class="note-divider">/</span> No sign-up required</p>
+                </div>
+            </div>
         </section>
-        <footer class="overview-footer"><span>Interactive dispatch simulation</span><span>01 / 01</span></footer>
+        <section class="overview-explanation" id="about">
+            <div class="explanation-lead">
+                <p class="eyebrow">WHY IT EXISTS</p>
+                <h2>Every order is a decision.<br><em>Every decision leaves a trace.</em></h2>
+            </div>
+            <div class="explanation-body">
+                <p>DispatchLab simulates couriers moving through a living street network. Compare a simple nearest-courier decision with strategies that account for priorities, workload, and traffic.</p>
+                <div class="method-grid">
+                    <div><span>01</span><strong>Observe</strong><small>Watch demand enter the network.</small></div>
+                    <div><span>02</span><strong>Compare</strong><small>Switch the logic behind each assignment.</small></div>
+                    <div><span>03</span><strong>Learn</strong><small>See how one choice reshapes the fleet.</small></div>
+                </div>
+            </div>
+        </section>
+        <footer class="overview-footer"><span>Interactive dispatch simulation</span><span>Built for curious operators <b>↗</b></span></footer>
     </main>
 </body>
 </html>
