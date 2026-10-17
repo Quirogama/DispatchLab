@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildGridGraph, shortestPath, nodeDistance, orderRequests } from './src/main/resources/static/dispatch-logic.js';
+import { buildGridGraph, shortestPath, nodeDistance, orderRequests } from '../src/main/resources/static/dispatch-logic.js';
 
 test('buildGridGraph creates street intersections and adjacency', () => {
   const graph = buildGridGraph({ columns: 3, rows: 2 });

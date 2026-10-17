@@ -28,7 +28,7 @@ jobs:
           node-version: '22'
 
       - name: Run JavaScript tests
-        run: node --test dispatch-logic.test.mjs
+        run: npm test
 
       - name: Run Maven tests
         run: ./mvnw --batch-mode test

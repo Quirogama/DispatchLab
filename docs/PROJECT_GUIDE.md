@@ -19,7 +19,7 @@ service wrapper are represented in one runnable application.
 | Operating conditions | Normal, rush, shortage, and downtown presets; demand and fleet controls | `static/simulator.html`, `static/app.js` |
 | Reproducibility | Seeded linear-congruential random number generator; benchmark replays each policy with the same seed and controls | `static/app.js` |
 | Traffic | Time-varying traffic on street edges; downtown applies a stronger traffic factor | `static/app.js`, `static/dispatch-logic.js` |
-| Telemetry | Delivered, queued, average route blocks, estimated efficiency, average pickup time, and pickup ETA | `static/simulator.html`, `static/app.js` |
+| Telemetry | Delivered, queued, weighted route cost, service level, average pickup time, pickup ETA, P95 delivery time, and fleet utilization | `static/simulator.html`, `static/app.js`, `static/metrics.js` |
 | Fleet roster | Current status, completed deliveries, and rolling courier rating | `static/app.js` |
 | Experiments | Record a run or benchmark all policies; compare delivery, time, distance, utilization, and rating | `static/app.js` |
 | Service/API | Spring Boot serves static resources and exposes `GET /api/health` | `api/HealthController.java` |
@@ -69,8 +69,12 @@ diverge as the simulation proceeds.
   based on current route-edge traffic.
 - **Utilization:** accumulated courier busy-time divided by total available
   courier-time, as a percentage.
-- **Efficiency:** currently a simple queue-based indicator (`100 - 4 × waiting`,
-  floored at zero). It is a heuristic, not a standard operations metric.
+- **Service level:** percentage of completed requests delivered within the
+  180-second assignment-to-delivery target.
+- **P95 delivery time:** 95th percentile of assignment-to-delivery time for
+  completed requests.
+- **Utilization:** courier busy-time divided by total available courier-time,
+  capped at 100%.
 - **Courier rating:** rolling score derived from pickup and delivery times,
   bounded from 3 to 5 by the current scoring formula.
 
@@ -80,27 +84,23 @@ diverge as the simulation proceeds.
    user management, or server-side experiment API.
 2. The balanced policy considers completed deliveries, but not a richer measure
    such as cumulative workload, fairness, or courier availability history.
-3. Efficiency is a placeholder heuristic and should be renamed or replaced by
-   an explicitly defined service-level metric.
+3. The simulation uses a simplified fixed 180-second service target; scenario-
+   specific SLAs and configurable vehicle speeds are future improvements.
 4. Scenario controls describe a simplified model: rush hour raises demand,
    shortage reduces fleet size, and downtown raises traffic. They do not model
    weather, road closures, vehicle types, or shift schedules.
 5. The benchmark runs synchronously in the browser and may block interaction
    on slower devices. A worker or incremental benchmark would scale better.
-6. The codebase has only a small graph-logic test and a Spring context-load
-   test. Dispatch assignment, seeded reproducibility, metric calculations,
-   scenarios, and API behavior need focused tests.
+6. The browser simulation is still client-side; only graph, policy-ordering,
+   and metric calculations are covered by focused JavaScript tests.
 
 ## Suggested project extension plan
 
-1. Add JavaScript unit tests for dispatch policies, seeded demand, routes, and
-   metric calculations; fix the existing graph test expectations to match the
-   configured graph dimensions.
-2. Extract simulation state transitions and metric aggregation from DOM code
-   into testable modules.
-3. Define benchmark inputs and output schemas, then export experiment results
-   as JSON or CSV.
-4. Add server-side experiment persistence and API validation if multi-user or
+1. Add JavaScript unit tests for seeded demand, routes, simulation invariants,
+   and benchmark reproducibility.
+2. Extract the remaining simulation state transitions from DOM code into a
+   testable engine.
+3. Add server-side experiment persistence and API validation if multi-user or
    long-lived runs become project requirements.
-5. Add architecture and sequence diagrams, API contract examples, and a
+4. Add architecture and sequence diagrams, API contract examples, and a
    reproducible experiment protocol to the documentation.

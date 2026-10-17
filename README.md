@@ -22,12 +22,23 @@ src/
       application.yml
       static/
         app.js
+        metrics.js
+        dispatch-logic.js
         index.html
+        simulator.html
         styles.css
   test/
     java/com/dispatchlab/
       DispatchLabApplicationTests.java
+tests/
+  dispatch-logic.test.mjs
+  metrics.test.mjs
 ```
+
+The repository root intentionally contains only project-level files: build
+configuration, container setup, the Maven wrapper, and the JavaScript test
+entry points. Application code remains under `src/`, while project
+documentation lives under `docs/`.
 
 ## Run with Docker (recommended)
 
@@ -75,7 +86,7 @@ version so the build does not depend on a global Maven installation.
 The same checks run in GitHub Actions on every push and pull request:
 
 ```bash
-node --test dispatch-logic.test.mjs
+node --test tests/dispatch-logic.test.mjs tests/metrics.test.mjs
 .\mvnw.cmd test
 docker build --tag dispatchlab:ci .
 ```

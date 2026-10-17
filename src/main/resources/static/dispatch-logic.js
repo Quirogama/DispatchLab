@@ -154,6 +154,6 @@ export function nodeDistance(graph, start, end) {
 
 export function orderRequests(requests, policy) {
   return [...requests].sort((a, b) => policy === 'priority'
-    ? b.priority - a.priority
+    ? (b.priority - a.priority) || (a.createdAt - b.createdAt)
     : a.createdAt - b.createdAt);
 }

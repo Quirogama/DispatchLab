@@ -1,0 +1,8 @@
+{
+  "name": "dispatchlab",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/dispatch-logic.test.mjs tests/metrics.test.mjs"
+  }
+}

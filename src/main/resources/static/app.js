@@ -1,4 +1,5 @@
 import { buildGridGraph, nearestNode, nodeDistance, shortestPath, recomputeEdgeWeights, getEffectiveTraffic, getEdge, orderRequests } from './dispatch-logic.js';
+import { calculateMetrics, summarizeRun } from './metrics.js';
 
 const canvas = document.querySelector('#board');
 const context = canvas.getContext('2d');
@@ -7,6 +8,8 @@ const demandInput = document.querySelector('#demand');
 const courierInput = document.querySelector('#courierCount');
 const playButton = document.querySelector('#playButton');
 const resetButton = document.querySelector('#resetButton');
+const exportJsonButton = document.querySelector('#exportJsonButton');
+const exportCsvButton = document.querySelector('#exportCsvButton');
 const runState = document.querySelector('#runState');
 const statusLine = document.querySelector('#statusLine');
 const algorithmNote = document.querySelector('#algorithmNote');
@@ -58,6 +61,9 @@ function createState() {
         elapsed: 0,
         delivered: 0,
         totalDistance: 0,
+        totalRating: 0,
+        onTimeDeliveries: 0,
+        deliveryTimes: [],
         seed,
         random: createRandom(seed),
         graph: buildGridGraph(grid),
@@ -77,6 +83,7 @@ function createState() {
                 totalPickupTime: 0,
                 totalDeliveryTime: 0,
                 totalDistance: 0,
+                busyTime: 0,
                 rating: 5.0
             }
         }))
@@ -164,6 +171,9 @@ function updateCourierRating(courier, request) {
     courier.profile.completedOrders += 1;
     courier.profile.totalPickupTime += pickupTime;
     courier.profile.totalDeliveryTime += deliveryTime;
+    state.totalRating += orderRating;
+    state.deliveryTimes.push(request.deliveredAt - request.assignedAt);
+    if (request.deliveredAt - request.assignedAt <= 180) state.onTimeDeliveries += 1;
 }
 
 function chooseCourier(request, available) {
@@ -295,7 +305,11 @@ function update(delta) {
     updateTraffic();
     if (state.elapsed > 0 && state.elapsed % demandDelay() < delta / 1000) spawnRequest();
     state.requests.forEach(request => { request.age += delta / 1000; });
-    state.couriers.forEach(courier => { if (courier.status !== 'idle') moveCourier(courier, delta); });
+    state.couriers.forEach(courier => {
+        if (courier.status === 'idle') return;
+        courier.profile.busyTime += delta / 1000;
+        moveCourier(courier, delta);
+    });
     assignRequests();
     if (!benchmarkMode) updateMetrics();
 }
@@ -433,25 +447,19 @@ function draw() {
 }
 
 function updateMetrics() {
-    const waiting = state.requests.filter(request => !request.assigned).length;
-    const avgWait = state.requests.filter(request => !request.assigned).length > 0
-        ? (state.requests.filter(request => !request.assigned).reduce((sum, r) => sum + r.age, 0) / waiting).toFixed(1)
-        : '0.0';
-    
     const activeEtas = state.couriers
         .filter(c => c.request && c.status === 'to-pickup')
         .map(c => estimateArrival(c, c.request.pickup));
-    const avgEta = activeEtas.length > 0
-        ? (activeEtas.reduce((a, b) => a + b, 0) / activeEtas.length).toFixed(0)
-        : '0';
-    
-    document.querySelector('#delivered').textContent = state.delivered;
-    document.querySelector('#waiting').textContent = waiting;
-    document.querySelector('#distance').textContent = state.delivered ? (state.totalDistance / state.delivered).toFixed(1) : '0.0';
-    document.querySelector('#waitTime').textContent = avgWait + 's';
-    document.querySelector('#eta').textContent = avgEta + 's';
-    const efficiency = Math.max(0, Math.round(100 - waiting * 4));
-    document.querySelector('#efficiency').textContent = `${efficiency}%`;
+    const metrics = calculateMetrics(state, activeEtas);
+
+    document.querySelector('#delivered').textContent = metrics.delivered;
+    document.querySelector('#waiting').textContent = metrics.waiting;
+    document.querySelector('#distance').textContent = metrics.averageDistance.toFixed(1);
+    document.querySelector('#serviceLevel').textContent = `${metrics.serviceLevel.toFixed(0)}%`;
+    document.querySelector('#waitTime').textContent = `${metrics.averageWaitTime.toFixed(1)}s`;
+    document.querySelector('#eta').textContent = `${metrics.averageEta.toFixed(0)}s`;
+    document.querySelector('#utilization').textContent = `${metrics.utilization.toFixed(0)}%`;
+    document.querySelector('#p95Delivery').textContent = `${metrics.p95DeliveryTime.toFixed(0)}s`;
     renderFleet();
     const minutes = Math.floor(state.elapsed / 60).toString().padStart(2, '0');
     const seconds = Math.floor(state.elapsed % 60).toString().padStart(2, '0');
@@ -502,26 +510,17 @@ function renderResults() {
             <div class="result-row">
                 <strong>${result.algorithm}</strong>
                 <span>${result.delivered} delivered</span>
-                <span>${result.pickupTime}s pickup</span>
-                <span>${result.rating} rating</span>
+                <span>${result.p95DeliveryTime.toFixed(0)}s P95 / ${result.serviceLevel.toFixed(0)}% SLA</span>
+                <span>${result.utilization.toFixed(0)}% fleet / ${result.rating.toFixed(1)} rating</span>
             </div>
         `).join('');
 }
 
 function recordResult() {
-    const completedCouriers = state.couriers.filter(courier => courier.profile.completedOrders > 0);
-    const completedOrders = state.delivered;
-    const pickupTime = completedCouriers.reduce((total, courier) => total + courier.profile.totalPickupTime, 0);
-    const averageRating = completedCouriers.length > 0
-        ? completedCouriers.reduce((total, courier) => total + courier.profile.rating, 0) / completedCouriers.length
-        : 0;
-
-    experimentResults.push({
-        algorithm: algorithmInput.options[algorithmInput.selectedIndex].text,
-        delivered: completedOrders,
-        pickupTime: completedOrders > 0 ? (pickupTime / completedOrders).toFixed(1) : '0.0',
-        rating: averageRating.toFixed(1)
-    });
+    experimentResults.push(summarizeRun(
+        state,
+        algorithmInput.options[algorithmInput.selectedIndex].text
+    ));
     renderResults();
     statusLine.textContent = 'Run recorded for strategy comparison.';
 }
@@ -541,17 +540,10 @@ function runComparison() {
 
         for (let frame = 0; frame < 900; frame += 1) update(100);
 
-        const completedCouriers = state.couriers.filter(courier => courier.profile.completedOrders > 0);
-        const pickupTime = completedCouriers.reduce((total, courier) => total + courier.profile.totalPickupTime, 0);
-        const averageRating = completedCouriers.length > 0
-            ? completedCouriers.reduce((total, courier) => total + courier.profile.rating, 0) / completedCouriers.length
-            : 0;
-        benchmarkResults.push({
-            algorithm: algorithmInput.options[algorithmInput.selectedIndex].text,
-            delivered: state.delivered,
-            pickupTime: state.delivered > 0 ? (pickupTime / state.delivered).toFixed(1) : '0.0',
-            rating: averageRating.toFixed(1)
-        });
+        benchmarkResults.push(summarizeRun(
+            state,
+            algorithmInput.options[algorithmInput.selectedIndex].text
+        ));
     });
 
     state = liveState;
@@ -563,6 +555,32 @@ function runComparison() {
     updateMetrics();
     draw();
     statusLine.textContent = 'Comparison complete: same seed, four strategies.';
+}
+
+function downloadExperimentResults(format) {
+    if (experimentResults.length === 0) {
+        statusLine.textContent = 'Run or record an experiment before exporting results.';
+        return;
+    }
+
+    const content = format === 'json'
+        ? JSON.stringify(experimentResults, null, 2)
+        : [
+            'algorithm,seed,couriers,delivered,pending,averageDistance,averagePickupTime,p95DeliveryTime,serviceLevel,utilization,rating',
+            ...experimentResults.map(result => [
+                result.algorithm, result.seed, result.couriers, result.delivered, result.pending,
+                result.averageDistance.toFixed(2), result.averagePickupTime.toFixed(2),
+                result.p95DeliveryTime.toFixed(2), result.serviceLevel.toFixed(2),
+                result.utilization.toFixed(2), result.rating.toFixed(2)
+            ].map(value => `"${String(value).replaceAll('"', '""')}"`).join(','))
+        ].join('\n');
+    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `dispatchlab-experiment.${format}`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    statusLine.textContent = `Experiment exported as ${format.toUpperCase()}.`;
 }
 
 function frame(timestamp) {
@@ -610,6 +628,8 @@ playButton.addEventListener('click', toggleRunning);
 resetButton.addEventListener('click', reset);
 document.querySelector('#recordButton').addEventListener('click', recordResult);
 document.querySelector('#compareButton').addEventListener('click', runComparison);
+exportJsonButton.addEventListener('click', () => downloadExperimentResults('json'));
+exportCsvButton.addEventListener('click', () => downloadExperimentResults('csv'));
 canvas.addEventListener('click', event => {
     const bounds = canvas.getBoundingClientRect();
     const pointer = {
