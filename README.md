@@ -54,10 +54,7 @@ stop it.
 If you prefer to run it directly on your machine:
 
 ```bash
-$env:JAVA_HOME = "C:\Program Files\Eclipse Adoptium\jdk-25.0.4.7-hotspot"
-$env:Path = "$env:JAVA_HOME\bin;$env:Path"
-
-mvn spring-boot:run
+.\mvnw.cmd spring-boot:run
 ```
 
 Then open:
@@ -69,5 +66,16 @@ http://localhost:8080
 ## Verify
 
 ```bash
-mvn test
+.\mvnw.cmd test
+```
+
+The project targets Java 25. The Maven Wrapper downloads the pinned Maven
+version so the build does not depend on a global Maven installation.
+
+The same checks run in GitHub Actions on every push and pull request:
+
+```bash
+node --test dispatch-logic.test.mjs
+.\mvnw.cmd test
+docker build --tag dispatchlab:ci .
 ```

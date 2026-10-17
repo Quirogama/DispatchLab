@@ -44,8 +44,9 @@ clears the run history.
   courier with the fewest street edges to pickup.
 - **Priority first:** orders queued requests by descending priority, then uses
   the same nearest-courier selection. Equal priorities retain arrival order.
-- **Balanced workload:** among idle couriers, prefers the courier with fewer
-  completed deliveries, then breaks ties by street distance to pickup.
+- **Balanced workload:** processes requests in arrival order and, among idle
+  couriers, prefers the courier with fewer completed deliveries, then breaks
+  ties by street distance to pickup.
 - **Traffic-aware dispatch:** assigns queued requests in arrival order to the
   idle courier with the lowest current traffic-weighted route cost to pickup.
 
@@ -59,9 +60,9 @@ diverge as the simulation proceeds.
 - **Waiting:** requests not yet assigned. Requests already assigned are excluded.
 - **Pending in run results:** all requests not yet delivered, including requests
   already assigned to a courier.
-- **Average distance:** estimated street edges on the pickup-plus-delivery route
-  selected when the courier receives the request, divided by completed
-  deliveries. It is reported in blocks.
+- **Average distance:** congestion-weighted route cost on the pickup-plus-delivery
+  route selected when the courier receives the request, divided by completed
+  deliveries. It is reported in weighted blocks.
 - **Average pickup time:** elapsed simulation time from assignment to pickup,
   averaged over completed deliveries.
 - **Average ETA:** estimated time for couriers currently traveling to pickup,

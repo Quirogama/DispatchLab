@@ -1,4 +1,4 @@
-import { buildGridGraph, nearestNode, nodeDistance, shortestPath, recomputeEdgeWeights, getEffectiveTraffic, getEdge } from './dispatch-logic.js';
+import { buildGridGraph, nearestNode, nodeDistance, shortestPath, recomputeEdgeWeights, getEffectiveTraffic, getEdge, orderRequests } from './dispatch-logic.js';
 
 const canvas = document.querySelector('#board');
 const context = canvas.getContext('2d');
@@ -188,7 +188,12 @@ function chooseCourier(request, available) {
 
 function assignRequests() {
     const available = state.couriers.filter(courier => courier.status === 'idle');
-    state.requests.filter(request => !request.assigned).sort((a, b) => b.priority - a.priority).forEach(request => {
+    const queuedRequests = orderRequests(
+        state.requests.filter(request => !request.assigned),
+        algorithmInput.value
+    );
+
+    queuedRequests.forEach(request => {
         const courier = chooseCourier(request, available);
         if (!courier) return;
         request.assigned = courier.id;
