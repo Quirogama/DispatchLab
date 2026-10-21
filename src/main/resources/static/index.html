@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DispatchLab | Urban Dispatch Lab</title>
-    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/styles.css?v=20261020-8">
 </head>
 <body class="overview-page">
     <main class="overview-shell">
@@ -12,6 +12,7 @@
             <a class="overview-logo" href="/">DISPATCH<span>LAB</span></a>
             <nav class="overview-nav" aria-label="Main navigation">
                 <a href="#about">The experiment</a>
+                <a href="#capabilities">What it measures</a>
                 <a href="/simulator.html">Open simulator <span>↗</span></a>
             </nav>
         </header>
@@ -19,6 +20,7 @@
             <div class="hero-heading">
                 <p class="eyebrow">FIELD STUDY 01 / URBAN LOGISTICS</p>
                 <h1>What if every <em>delivery</em><br>changed the city?</h1>
+                <p class="hero-intro">A small experiment about a big everyday problem: deciding what should move next when the city is already moving.</p>
             </div>
             <div class="hero-stage">
                 <div class="mini-dispatch" aria-label="Animated miniature dispatch simulation">
@@ -37,24 +39,67 @@
                     <div class="mini-caption"><span><i class="pulse-dot"></i> routing in progress</span><span>4 couriers / 12 orders</span></div>
                 </div>
                 <div class="hero-copy">
-                    <p class="hero-lede">A living dispatch lab for testing how algorithms move people, packages, and pressure through a city.</p>
+                    <p class="hero-lede">Every request looks simple from the outside. Behind it, a fleet is balancing distance, urgency, traffic, and time.</p>
                     <a class="launch-button" href="/simulator.html"><span>+</span> Enter the simulation <b>↗</b></a>
                     <p class="hero-note"><span class="live-dot"></span> Simulation ready <span class="note-divider">/</span> No sign-up required</p>
                 </div>
             </div>
         </section>
+        <section class="story-band" aria-label="The dispatch problem">
+            <div class="story-label"><span class="signal-mark"></span><span>THE PROBLEM</span><span class="story-index">01 / 03</span></div>
+            <p class="story-copy">One order arrives. Six couriers are already somewhere else. The closest one may be busy, the fastest route may be crowded, and the “best” decision changes a minute later.</p>
+            <div class="story-log">
+                <div><span>09:42:18</span><strong>ORDER 024</strong><em>urgent request enters the network</em></div>
+                <div><span>09:42:19</span><strong>4 OPTIONS</strong><em>each one leaves a different trace</em></div>
+            </div>
+            <div class="decision-map" aria-label="A request being evaluated against four couriers">
+                <span class="decision-route route-one"></span><span class="decision-route route-two"></span><span class="decision-route route-three"></span>
+                <i class="decision-node node-start"></i><i class="decision-node node-courier-one"></i><i class="decision-node node-courier-two"></i><i class="decision-node node-courier-three"></i>
+                <b class="decision-order">ORDER</b><b class="decision-caption">distance / traffic / urgency</b>
+            </div>
+        </section>
         <section class="overview-explanation" id="about">
             <div class="explanation-lead">
-                <p class="eyebrow">WHY IT EXISTS</p>
-                <h2>Every order is a decision.<br><em>Every decision leaves a trace.</em></h2>
+                <p class="eyebrow">THE EXPERIMENT</p>
+                <h2>Dispatch is not<br>just a route.<br><em>It is a chain reaction.</em></h2>
             </div>
             <div class="explanation-body">
-                <p>DispatchLab simulates couriers moving through a living street network. Compare a simple nearest-courier decision with strategies that account for priorities, workload, and traffic.</p>
+                <p>DispatchLab makes that hidden layer visible. It models a city as a living network where requests appear, couriers change state, and every assignment leaves a trace on what happens next.</p>
+                <div class="chain-visual" aria-hidden="true"><span>request</span><i></i><span>assignment</span><i></i><span>traffic</span><i></i><span>outcome</span></div>
                 <div class="method-grid">
-                    <div><span>01</span><strong>Observe</strong><small>Watch demand enter the network.</small></div>
-                    <div><span>02</span><strong>Compare</strong><small>Switch the logic behind each assignment.</small></div>
-                    <div><span>03</span><strong>Learn</strong><small>See how one choice reshapes the fleet.</small></div>
+                    <div><span>01</span><strong>A request appears</strong><small>Demand enters the network at a new location.</small><i class="step-icon icon-request" aria-hidden="true"></i></div>
+                    <div><span>02</span><strong>A choice is made</strong><small>Different rules choose a different courier.</small><i class="step-icon icon-choice" aria-hidden="true"></i></div>
+                    <div><span>03</span><strong>The city responds</strong><small>Time, traffic, and workload shift again.</small><i class="step-icon icon-response" aria-hidden="true"></i></div>
                 </div>
+            </div>
+        </section>
+        <section class="capabilities-section" id="capabilities">
+            <div class="capabilities-heading">
+                <p class="eyebrow">THE FIELD NOTES</p>
+                <h2>Questions worth<br>watching unfold.</h2>
+            </div>
+            <div class="capabilities-grid">
+                <article class="capability-card">
+                    <span class="capability-index">A / WHEN DEMAND RISES</span>
+                    <span class="card-signal signal-demand"><i></i><i></i><i></i><i></i><i></i></span>
+                    <i class="card-orb orb-demand" aria-hidden="true"></i>
+                    <h3>Who should move next?</h3>
+                    <p>See what changes when the city asks for more than the fleet can comfortably absorb.</p>
+                </article>
+                <article class="capability-card capability-card-accent">
+                    <span class="capability-index">B / WHEN RULES CHANGE</span>
+                    <span class="card-signal signal-logic"><i></i><i></i><i></i><i></i><i></i></span>
+                    <i class="card-orb orb-logic" aria-hidden="true"></i>
+                    <h3>What counts as “best”?</h3>
+                    <p>Compare distance, urgency, workload, and traffic instead of trusting a single answer.</p>
+                </article>
+                <article class="capability-card">
+                    <span class="capability-index">C / WHEN PRESSURE BUILDS</span>
+                    <span class="card-signal signal-pressure"><i></i><i></i><i></i><i></i><i></i></span>
+                    <i class="card-orb orb-pressure" aria-hidden="true"></i>
+                    <h3>What does the system remember?</h3>
+                    <p>Follow delivery time, utilization, and service level as one decision reshapes the next.</p>
+                </article>
             </div>
         </section>
         <footer class="overview-footer"><span>Interactive dispatch simulation</span><span>Built for curious operators <b>↗</b></span></footer>
