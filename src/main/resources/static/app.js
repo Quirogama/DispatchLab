@@ -14,7 +14,7 @@ const runState = document.querySelector('#runState');
 const statusLine = document.querySelector('#statusLine');
 const algorithmNote = document.querySelector('#algorithmNote');
 const grid = { columns: 15, rows: 6 };
-const canvasRatio = grid.rows / grid.columns;
+const canvasRatio = 5.25 / grid.columns;
 const depots = [{ x: 1, y: 1 }, { x: 13, y: 1 }, { x: 2, y: 4 }, { x: 12, y: 4 }];
 const requestColors = ['#e5684c', '#f09b52', '#c94f59'];
 const courierNames = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
@@ -383,9 +383,21 @@ function draw() {
     depots.forEach(depot => {
         const depotPoint = point(depot, width, height);
         context.fillStyle = '#168b83';
-        context.fillRect(depotPoint.x - 11, depotPoint.y - 11, 22, 22);
+        context.beginPath();
+        context.moveTo(depotPoint.x, depotPoint.y - 12);
+        context.lineTo(depotPoint.x + 12, depotPoint.y);
+        context.lineTo(depotPoint.x, depotPoint.y + 12);
+        context.lineTo(depotPoint.x - 12, depotPoint.y);
+        context.closePath();
+        context.fill();
         context.fillStyle = '#fffdf8';
-        context.fillRect(depotPoint.x - 4, depotPoint.y - 4, 8, 8);
+        context.beginPath();
+        context.moveTo(depotPoint.x, depotPoint.y - 4);
+        context.lineTo(depotPoint.x + 4, depotPoint.y);
+        context.lineTo(depotPoint.x, depotPoint.y + 4);
+        context.lineTo(depotPoint.x - 4, depotPoint.y);
+        context.closePath();
+        context.fill();
     });
 
     state.requests.forEach(request => {
@@ -409,7 +421,10 @@ function draw() {
 
         context.fillStyle = '#fffdf8';
         context.beginPath();
-        context.arc(destination.x, destination.y, 6, 0, Math.PI * 2);
+        context.moveTo(destination.x, destination.y - 8);
+        context.lineTo(destination.x + 8, destination.y + 6);
+        context.lineTo(destination.x - 8, destination.y + 6);
+        context.closePath();
         context.fill();
         context.strokeStyle = request.color;
         context.lineWidth = 2;

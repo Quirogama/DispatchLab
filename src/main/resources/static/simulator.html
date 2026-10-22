@@ -4,14 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DispatchLab | City Simulator</title>
-    <link rel="stylesheet" href="/styles.css?v=20261020-8">
+    <link rel="stylesheet" href="/styles.css?v=20261022-5">
 </head>
 <body class="simulator-page">
     <main class="shell">
         <header class="topbar">
-            <div>
-                <p class="eyebrow">DISPATCHLAB / FIELD STUDY 01</p>
-                <h1>Courier dispatch simulator</h1>
+            <div class="simulator-context">
+                <a class="simulator-logo" href="/">DISPATCH<span>LAB</span></a>
+                <span class="context-divider">/</span>
+                <span class="context-label">FIELD STUDY 01 / LIVE DISPATCH</span>
             </div>
             <div class="run-state" id="runState">PAUSED</div>
         </header>
@@ -25,13 +26,19 @@
                     </div>
                     <div class="legend" aria-label="Map legend">
                         <span><i class="legend-dot depot"></i>depot</span>
-                        <span><i class="legend-dot request"></i>request</span>
                         <span><i class="legend-dot courier"></i>courier</span>
+                        <span><i class="legend-dot request"></i>request</span>
+                        <span><i class="legend-dot destination"></i>destination</span>
+                    </div>
+                    <div class="control-actions">
+                        <button class="secondary-action" id="resetButton" type="button">Reset scenario</button>
+                        <button class="primary-action" id="playButton" type="button"><span id="playIcon">></span> Start simulation</button>
                     </div>
                 </div>
                 <div class="board-wrap">
                     <canvas id="board" aria-label="Interactive courier dispatch map"></canvas>
                     <div class="board-hint">Click an intersection to place a delivery request</div>
+                    <div class="board-signal"><span class="live-dot"></span>NETWORK ACTIVE <i></i> TRAFFIC WEIGHTED</div>
                 </div>
                 <div class="timeline">
                     <span class="timeline-label">T+ <strong id="clock">00:00</strong></span>
@@ -87,10 +94,6 @@
                     <div class="results-list" id="resultsList"></div>
                 </section>
 
-                <div class="control-actions">
-                    <button class="primary-action" id="playButton" type="button"><span id="playIcon">></span> Start simulation</button>
-                    <button class="secondary-action" id="resetButton" type="button">Reset scenario</button>
-                </div>
                 <p class="status-line" id="statusLine">Ready for a new scenario.</p>
             </aside>
 
