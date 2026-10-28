@@ -1,6 +1,13 @@
 spring:
   application:
     name: dispatchlab
+  sql:
+    init:
+      mode: always
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/dispatchlab}
+    username: ${DB_USERNAME:dispatchlab}
+    password: ${DB_PASSWORD:dispatchlab}
 
 server:
   port: 8080

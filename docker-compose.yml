@@ -1,4 +1,19 @@
 services:
+  database:
+    image: postgres:17-alpine
+    container_name: dispatchlab-database
+    environment:
+      POSTGRES_DB: dispatchlab
+      POSTGRES_USER: dispatchlab
+      POSTGRES_PASSWORD: dispatchlab
+    volumes:
+      - dispatchlab-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dispatchlab -d dispatchlab"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   dispatchlab:
     build:
       context: .
@@ -6,4 +21,14 @@ services:
     container_name: dispatchlab
     ports:
       - "8080:8080"
+    environment:
+      DB_URL: jdbc:postgresql://database:5432/dispatchlab
+      DB_USERNAME: dispatchlab
+      DB_PASSWORD: dispatchlab
+    depends_on:
+      database:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  dispatchlab-data:

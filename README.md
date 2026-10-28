@@ -103,6 +103,25 @@ comparisons pre-generate the same request workload for every strategy, then
 advance each run for the same simulated duration. This prevents a faster
 policy from accidentally receiving a different demand stream.
 
+## Experiment API
+
+The simulator can save recorded runs through Spring Boot:
+
+```text
+POST /api/experiments
+GET  /api/experiments
+GET  /api/experiments/{id}
+```
+
+Experiment results are persisted in PostgreSQL when the application is run with
+Docker Compose. The JDBC repository is behind an interface so the storage
+boundary can evolve without changing the API or service layer. Tests use an
+isolated in-memory H2 database.
+
+The Compose setup creates a named PostgreSQL volume, so saved experiments
+survive application restarts. To remove local data intentionally, run
+`docker compose down -v`.
+
 For local Maven commands on Windows, make sure `JAVA_HOME` points to a JDK 25
 installation. A Java runtime without `javac`, or a Java 8 shim earlier in
 `PATH`, will make Maven fail during test compilation.

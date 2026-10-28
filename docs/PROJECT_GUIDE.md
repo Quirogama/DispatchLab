@@ -22,7 +22,7 @@ service wrapper are represented in one runnable application.
 | Telemetry | Delivered, queued, weighted route cost, service level, average pickup time, pickup ETA, P95 delivery time, and fleet utilization | `static/simulator.html`, `static/app.js`, `static/metrics.js` |
 | Fleet roster | Current status, completed deliveries, and rolling courier rating | `static/app.js` |
 | Experiments | Record a run or benchmark all policies; compare delivery, time, distance, utilization, and rating | `static/app.js` |
-| Service/API | Spring Boot serves static resources and exposes `GET /api/health` | `api/HealthController.java` |
+| Service/API | Spring Boot serves static resources, exposes health, and stores experiment results through a validated API | `api/HealthController.java`, `api/experiment/ExperimentController.java` |
 | Packaging | Maven build and Docker Compose launcher | `pom.xml`, `Dockerfile`, `docker-compose.yml`, `run.bat` |
 
 ## Architecture and data flow
@@ -34,11 +34,13 @@ controls, Canvas rendering, and DOM updates. The separate `dispatch-logic.js`
 module owns graph construction, edge lookup, congestion weights, and
 shortest-path calculations.
 
-Spring Boot does not currently run the simulation or persist data. It serves
-the files from `src/main/resources/static` and provides a health endpoint. Run
-comparisons are synchronous and remain in browser memory; refreshing the page
-clears the run history. The comparison runner pre-generates one request event
-stream and replays it for every policy.
+Spring Boot does not currently run the simulation. It serves the files from
+`src/main/resources/static`, provides a health endpoint, and accepts experiment
+results through `POST /api/experiments`. Experiment results are persisted in
+PostgreSQL by the JDBC implementation behind `ExperimentRepository`; tests use
+an isolated H2 database. Run comparisons are synchronous in the browser; the comparison runner
+pre-generates one request event stream and replays it for every policy before
+saving the results through the API.
 
 ## Policy definitions
 
@@ -81,8 +83,8 @@ diverge as the simulation proceeds.
 
 ## Known limitations and next engineering steps
 
-1. The simulator and run history are client-side only; there is no persistence,
-   user management, or server-side experiment API.
+1. The simulator remains client-side, while saved experiment results are
+   persisted server-side. There is still no authentication or ownership model.
 2. The balanced policy considers completed deliveries, but not a richer measure
    such as cumulative workload, fairness, or courier availability history.
 3. The simulation uses a simplified fixed 180-second service target; scenario-
@@ -97,7 +99,7 @@ diverge as the simulation proceeds.
 
 ## Suggested project extension plan
 
-1. Add server-side experiment persistence and API validation if multi-user or
-   long-lived runs become project requirements.
+1. Add authentication and ownership controls before exposing saved experiments
+   to multiple users.
 2. Add architecture and sequence diagrams, API contract examples, and a
    reproducible experiment protocol to the documentation.

@@ -278,13 +278,44 @@ function renderResults() {
         `).join('');
 }
 
+async function saveExperimentResults(results) {
+    const seed = Number(document.querySelector('#seed').value) || 90210;
+    const payload = {
+        seed,
+        durationSeconds: 180,
+        courierCount: Number(courierInput.value),
+        results
+    };
+
+    const response = await fetch('/api/experiments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`Experiment API returned ${response.status}: ${detail}`);
+    }
+
+    return response.json();
+}
+
 function recordResult() {
-    experimentResults.push(summarizeRun(
+    const result = summarizeRun(
         state,
         algorithmInput.options[algorithmInput.selectedIndex].text
-    ));
+    );
+    experimentResults.push(result);
     renderResults();
-    statusLine.textContent = 'Run recorded for strategy comparison.';
+    statusLine.textContent = 'Run recorded locally. Saving experiment...';
+    saveExperimentResults([result])
+        .then(saved => {
+            statusLine.textContent = `Experiment ${saved.id.slice(0, 8)} saved.`;
+        })
+        .catch(error => {
+            statusLine.textContent = `Could not save experiment: ${error.message}`;
+        });
 }
 
 function runComparison() {
@@ -319,7 +350,14 @@ function runComparison() {
     renderResults();
     updateMetrics();
     draw();
-    statusLine.textContent = 'Comparison complete: same seed, four strategies.';
+    statusLine.textContent = 'Comparison complete. Saving experiment...';
+    saveExperimentResults(benchmarkResults)
+        .then(saved => {
+            statusLine.textContent = `Comparison saved as experiment ${saved.id.slice(0, 8)}.`;
+        })
+        .catch(error => {
+            statusLine.textContent = `Comparison complete, but save failed: ${error.message}`;
+        });
 }
 
 function downloadExperimentResults(format) {
