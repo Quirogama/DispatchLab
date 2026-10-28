@@ -11,16 +11,27 @@ export function percentile(values, percentileRank) {
 }
 
 export function calculateMetrics(state, activeEtas = []) {
-    const waitingRequests = state.requests.filter(request => !request.assigned);
+    const waitingRequests = state.requests.filter(request =>
+        request.assigned == null || request.assigned === false
+    );
     const completed = state.delivered;
     const totalCourierTime = state.elapsed * state.couriers.length;
     const busyTime = state.couriers.reduce((total, courier) => total + courier.profile.busyTime, 0);
     const totalPickupTime = state.couriers.reduce((total, courier) => total + courier.profile.totalPickupTime, 0);
+    const completedRequests = state.completedRequests ?? [];
+    const assignedDistance = state.totalAssignedDistance ?? state.totalDistance ?? 0;
+    const completedDistance = state.totalCompletedDistance ?? state.totalDistance ?? 0;
+    const assigned = state.requests.filter(request =>
+        request.assigned != null && request.assigned !== false
+    ).length + completedRequests.length;
 
     return {
         delivered: completed,
         waiting: waitingRequests.length,
-        averageDistance: completed > 0 ? state.totalDistance / completed : 0,
+        assigned,
+        pending: state.requests.length,
+        averageDistance: completed > 0 ? completedDistance / completed : 0,
+        plannedAverageDistance: assigned > 0 ? assignedDistance / assigned : 0,
         averageWaitTime: waitingRequests.length > 0
             ? waitingRequests.reduce((total, request) => total + request.age, 0) / waitingRequests.length
             : 0,
@@ -42,8 +53,11 @@ export function summarizeRun(state, algorithm) {
         seed: state.seed,
         couriers: state.couriers.length,
         delivered: metrics.delivered,
-        pending: state.requests.length,
+        waiting: metrics.waiting,
+        pending: metrics.pending,
+        assigned: metrics.assigned,
         averageDistance: metrics.averageDistance,
+        plannedAverageDistance: metrics.plannedAverageDistance,
         averagePickupTime: metrics.averagePickupTime,
         p95DeliveryTime: metrics.p95DeliveryTime,
         serviceLevel: metrics.serviceLevel,

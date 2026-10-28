@@ -1,5 +1,12 @@
-import { buildGridGraph, nearestNode, nodeDistance, shortestPath, recomputeEdgeWeights, getEffectiveTraffic, getEdge, orderRequests } from './dispatch-logic.js';
+import { nearestNode, getEffectiveTraffic, getEdge } from './dispatch-logic.js';
 import { calculateMetrics, summarizeRun } from './metrics.js';
+import {
+    addSimulationRequest,
+    advanceSimulation,
+    createSimulationState,
+    runExperiment,
+    travelTime
+} from './simulation-engine.js';
 
 const canvas = document.querySelector('#board');
 const context = canvas.getContext('2d');
@@ -30,287 +37,30 @@ let animationFrame;
 const experimentResults = [];
 let benchmarkMode = false;
 
-function createRandom(seed) {
-    let value = Number(seed) >>> 0;
-    return () => {
-        value = (value * 1664525 + 1013904223) >>> 0;
-        return value / 4294967296;
-    };
-}
-
-function random() {
-    return state.random();
-}
-
-function randomStation(exclude) {
-    let station;
-    do {
-        station = {
-            x: Math.floor(random() * grid.columns),
-            y: Math.floor(random() * grid.rows)
-        };
-    } while (exclude && station.x === exclude.x && station.y === exclude.y);
-    return station;
-}
-
 function createState() {
     const courierCount = Number(courierInput.value);
     const seed = Number(document.querySelector('#seed').value) || 90210;
-    return {
-        running: false,
-        elapsed: 0,
-        delivered: 0,
-        totalDistance: 0,
-        totalRating: 0,
-        onTimeDeliveries: 0,
-        deliveryTimes: [],
+    return createSimulationState({
+        grid,
+        depots,
+        courierCount,
+        courierNames,
         seed,
-        random: createRandom(seed),
-        graph: buildGridGraph(grid),
-        requests: [],
-        couriers: Array.from({ length: courierCount }, (_, index) => ({
-            id: index,
-            x: depots[index % depots.length].x,
-            y: depots[index % depots.length].y,
-            home: { ...depots[index % depots.length] },
-            status: 'idle',
-            request: null,
-            route: [],
-            distance: 0,
-            profile: {
-                name: courierNames[index % courierNames.length],
-                completedOrders: 0,
-                totalPickupTime: 0,
-                totalDeliveryTime: 0,
-                totalDistance: 0,
-                busyTime: 0,
-                rating: 5.0
-            }
-        }))
-    };
-}
-
-function distance(a, b) {
-    const start = { x: Math.round(a.x), y: Math.round(a.y) };
-    const end = { x: Math.round(b.x), y: Math.round(b.y) };
-    return nodeDistance(state.graph, start, end);
+        algorithm: algorithmInput.value,
+        demandDelay: demandDelay()
+    });
 }
 
 function demandDelay() { return [2.8, 1.7, 0.85][Number(demandInput.value) - 1]; }
 
-function setCourierRoute(courier, target) {
-    const start = { x: Math.round(courier.x), y: Math.round(courier.y) };
-    const route = shortestPath(state.graph, start, target);
-    courier.route = route.length > 1 ? route.slice(1) : [];
-}
-
-function addRequest(station, destination = randomStation(station)) {
-    state.requests.push({
-        id: `${state.seed}-${state.elapsed}-${state.requests.length}`,
-        pickup: { ...station },
-        destination: { ...destination },
-        priority: 1 + Math.floor(random() * 3),
-        age: 0,
-        createdAt: state.elapsed,
-        color: requestColors[Math.floor(random() * requestColors.length)]
-    });
+function addRequest(station, destination) {
+    addSimulationRequest(state, station, destination);
     if (!benchmarkMode) statusLine.textContent = 'New delivery request added to the queue.';
-    assignRequests();
     if (!benchmarkMode) draw();
 }
 
-function spawnRequest() {
-    if (state.requests.length > 10) return;
-    addRequest(randomStation());
-}
-
-function roadDistance(from, to) {
-    const startKey = `${Math.round(from.x)},${Math.round(from.y)}`;
-    const targetKey = `${Math.round(to.x)},${Math.round(to.y)}`;
-    const queue = [{ key: startKey, distance: 0 }];
-    const visited = new Set([startKey]);
-
-    while (queue.length > 0) {
-        const current = queue.shift();
-        if (current.key === targetKey) return current.distance;
-
-        (state.graph.adjacency.get(current.key) ?? []).forEach(edge => {
-            const nextKey = `${edge.x},${edge.y}`;
-            if (visited.has(nextKey)) return;
-            visited.add(nextKey);
-            queue.push({ key: nextKey, distance: current.distance + 1 });
-        });
-    }
-
-    return Number.POSITIVE_INFINITY;
-}
-
-function trafficTravelTime(from, to) {
-    const start = { x: Math.round(from.x), y: Math.round(from.y) };
-    const target = { x: Math.round(to.x), y: Math.round(to.y) };
-    const route = shortestPath(state.graph, start, target);
-    let totalTime = 0;
-
-    for (let index = 0; index < route.length - 1; index += 1) {
-        const edge = getEdge(state.graph, route[index], route[index + 1]);
-        const traffic = edge ? getEffectiveTraffic(edge) : 0.2;
-        totalTime += (edge?.weight ?? 1) * traffic;
-    }
-
-    return totalTime;
-}
-
-function updateCourierRating(courier, request) {
-    const pickupTime = request.pickedUpAt - request.assignedAt;
-    const deliveryTime = request.deliveredAt - request.pickedUpAt;
-    const pickupScore = Math.max(0, 1 - pickupTime / 90);
-    const deliveryScore = Math.max(0, 1 - deliveryTime / 180);
-    const orderRating = 3 + ((pickupScore + deliveryScore) / 2) * 2;
-    const completed = courier.profile.completedOrders;
-    courier.profile.rating = ((courier.profile.rating * completed) + orderRating) / (completed + 1);
-    courier.profile.completedOrders += 1;
-    courier.profile.totalPickupTime += pickupTime;
-    courier.profile.totalDeliveryTime += deliveryTime;
-    state.totalRating += orderRating;
-    state.deliveryTimes.push(request.deliveredAt - request.assignedAt);
-    if (request.deliveredAt - request.assignedAt <= 180) state.onTimeDeliveries += 1;
-}
-
-function chooseCourier(request, available) {
-    if (algorithmInput.value === 'traffic') {
-        return [...available].sort((a, b) => {
-            return trafficTravelTime(a, request.pickup) - trafficTravelTime(b, request.pickup);
-        })[0];
-    }
-
-    if (algorithmInput.value === 'balanced') {
-        return [...available].sort((a, b) => {
-            const workloadA = (a.profile.completedOrders * 10) + roadDistance(a, request.pickup);
-            const workloadB = (b.profile.completedOrders * 10) + roadDistance(b, request.pickup);
-            return workloadA - workloadB;
-        })[0];
-    }
-
-    return [...available].sort((a, b) => {
-        return roadDistance(a, request.pickup) - roadDistance(b, request.pickup);
-    })[0];
-}
-
-function assignRequests() {
-    const available = state.couriers.filter(courier => courier.status === 'idle');
-    const queuedRequests = orderRequests(
-        state.requests.filter(request => !request.assigned),
-        algorithmInput.value
-    );
-
-    queuedRequests.forEach(request => {
-        const courier = chooseCourier(request, available);
-        if (!courier) return;
-        request.assigned = courier.id;
-        request.assignedAt = state.elapsed;
-        courier.status = 'to-pickup';
-        courier.request = request;
-        courier.route = [];
-        const route = distance(courier, request.pickup) + distance(request.pickup, request.destination);
-        courier.distance = route;
-        courier.profile.totalDistance += route;
-        state.totalDistance += route;
-        available.splice(available.indexOf(courier), 1);
-    });
-}
-
-function moveCourier(courier, delta) {
-    if (!courier.request) return;
-    const target = courier.status === 'to-pickup' ? courier.request.pickup : courier.request.destination;
-    if (!courier.route || courier.route.length === 0) {
-        setCourierRoute(courier, target);
-    }
-
-    if (!courier.route || courier.route.length === 0) {
-        courier.x = target.x;
-        courier.y = target.y;
-        if (courier.status === 'to-pickup') {
-            courier.request.pickedUpAt = state.elapsed;
-            courier.status = 'delivering';
-            setCourierRoute(courier, courier.request.destination);
-        } else {
-            courier.request.deliveredAt = state.elapsed;
-            updateCourierRating(courier, courier.request);
-            state.delivered += 1;
-            state.requests = state.requests.filter(request => request !== courier.request);
-            courier.request = null;
-            courier.status = 'idle';
-            courier.route = [];
-        }
-        return;
-    }
-
-    const next = courier.route[0];
-    const dx = next.x - courier.x;
-    const dy = next.y - courier.y;
-    const segmentLength = Math.hypot(dx, dy);
-    
-    const currentNode = { x: Math.round(courier.x), y: Math.round(courier.y) };
-    const nextNode = next;
-    const currentEdge = getEdge(state.graph, currentNode, nextNode);
-    const trafficMultiplier = currentEdge ? getEffectiveTraffic(currentEdge) : 0.2;
-    const step = delta * 0.001 * (1 / trafficMultiplier);
-
-    if (segmentLength <= step) {
-        courier.x = next.x;
-        courier.y = next.y;
-        courier.route.shift();
-
-        if (courier.route.length === 0) {
-            if (courier.status === 'to-pickup') {
-                courier.request.pickedUpAt = state.elapsed;
-                courier.status = 'delivering';
-                setCourierRoute(courier, courier.request.destination);
-            } else {
-                courier.request.deliveredAt = state.elapsed;
-                updateCourierRating(courier, courier.request);
-                state.delivered += 1;
-                state.requests = state.requests.filter(request => request !== courier.request);
-                courier.request = null;
-                courier.status = 'idle';
-                courier.route = [];
-            }
-        }
-    } else {
-        courier.x += (dx / segmentLength) * step;
-        courier.y += (dy / segmentLength) * step;
-    }
-}
-
-function updateTraffic() {
-    const trafficRamp = Math.min(state.elapsed / 20, 1);
-    state.graph.nodes.forEach(node => {
-        const key = `${node.x},${node.y}`;
-        const neighbors = state.graph.adjacency.get(key) ?? [];
-
-        neighbors.forEach(edge => {
-            const corridorPulse = (edge.x === 3 || edge.x === 8 || edge.y === 2 || edge.y === 5) ? 0.45 : 0;
-            const centerPulse = (node.x >= 4 && node.x <= 7 && node.y >= 2 && node.y <= 5) ? 0.3 : 0;
-            const wave = Math.sin((state.elapsed * 1.8) + (node.x * 1.7) + (edge.y * 1.1)) * 0.35;
-            const targetTraffic = Math.max(0, Math.min(1.2, 0.1 + wave + corridorPulse + centerPulse)) * trafficRamp;
-            edge.traffic += (targetTraffic - edge.traffic) * 0.025;
-        });
-    });
-
-    recomputeEdgeWeights(state.graph);
-}
-
 function update(delta) {
-    state.elapsed += delta / 1000;
-    updateTraffic();
-    if (state.elapsed > 0 && state.elapsed % demandDelay() < delta / 1000) spawnRequest();
-    state.requests.forEach(request => { request.age += delta / 1000; });
-    state.couriers.forEach(courier => {
-        if (courier.status === 'idle') return;
-        courier.profile.busyTime += delta / 1000;
-        moveCourier(courier, delta);
-    });
-    assignRequests();
+    advanceSimulation(state, delta);
     if (!benchmarkMode) updateMetrics();
 }
 
@@ -484,14 +234,11 @@ function updateMetrics() {
 
 function estimateArrival(courier, target) {
     if (!courier.request) return 0;
-    const route = shortestPath(state.graph, { x: Math.round(courier.x), y: Math.round(courier.y) }, target);
-    let time = 0;
-    for (let i = 0; i < route.length - 1; i++) {
-        const edge = getEdge(state.graph, route[i], route[i + 1]);
-        const traffic = edge ? getEffectiveTraffic(edge) : 0.2;
-        time += (edge ? (edge.weight ?? 1) : 1) * traffic * 222;
-    }
-    return time;
+    return travelTime(
+        state.graph,
+        { x: Math.round(courier.x), y: Math.round(courier.y) },
+        target
+    ) * 222;
 }
 
 function courierStatusLabel(courier) {
@@ -548,16 +295,19 @@ function runComparison() {
     const benchmarkResults = [];
 
     benchmarkMode = true;
-    algorithms.forEach(algorithm => {
-        algorithmInput.value = algorithm;
-        state = createState();
-        state.running = true;
-
-        for (let frame = 0; frame < 900; frame += 1) update(100);
-
+    runExperiment({
+        grid,
+        depots,
+        courierNames,
+        seed: Number(document.querySelector('#seed').value) || 90210,
+        courierCount: Number(courierInput.value),
+        demandDelay: demandDelay(),
+        durationSeconds: 180,
+        algorithms
+    }).forEach(resultState => {
         benchmarkResults.push(summarizeRun(
-            state,
-            algorithmInput.options[algorithmInput.selectedIndex].text
+            resultState,
+            algorithmInput.querySelector(`[value="${resultState.algorithm}"]`).textContent
         ));
     });
 
@@ -581,10 +331,11 @@ function downloadExperimentResults(format) {
     const content = format === 'json'
         ? JSON.stringify(experimentResults, null, 2)
         : [
-            'algorithm,seed,couriers,delivered,pending,averageDistance,averagePickupTime,p95DeliveryTime,serviceLevel,utilization,rating',
+            'algorithm,seed,couriers,delivered,waiting,pending,assigned,averageDistance,plannedAverageDistance,averagePickupTime,p95DeliveryTime,serviceLevel,utilization,rating',
             ...experimentResults.map(result => [
-                result.algorithm, result.seed, result.couriers, result.delivered, result.pending,
-                result.averageDistance.toFixed(2), result.averagePickupTime.toFixed(2),
+                result.algorithm, result.seed, result.couriers, result.delivered, result.waiting,
+                result.pending, result.assigned, result.averageDistance.toFixed(2),
+                result.plannedAverageDistance.toFixed(2), result.averagePickupTime.toFixed(2),
                 result.p95DeliveryTime.toFixed(2), result.serviceLevel.toFixed(2),
                 result.utilization.toFixed(2), result.rating.toFixed(2)
             ].map(value => `"${String(value).replaceAll('"', '""')}"`).join(','))
@@ -628,7 +379,7 @@ function reset() {
 
 algorithmInput.addEventListener('change', () => {
     algorithmNote.textContent = algorithmNotes[algorithmInput.value];
-    assignRequests();
+    state.algorithm = algorithmInput.value;
     draw();
 });
 demandInput.addEventListener('input', () => {
@@ -669,8 +420,7 @@ canvas.addEventListener('click', event => {
     });
 
     const pickup = closestNode ? { x: closestNode.x, y: closestNode.y } : nearestNode(state.graph, { x: 0, y: 0 });
-    const destination = randomStation(pickup);
-    addRequest(pickup, destination);
+    addRequest(pickup);
 });
 window.addEventListener('resize', resizeCanvas);
 state = createState();

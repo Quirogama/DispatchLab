@@ -90,3 +90,19 @@ node --test tests/dispatch-logic.test.mjs tests/metrics.test.mjs
 .\mvnw.cmd test
 docker build --tag dispatchlab:ci .
 ```
+
+The JavaScript suite can also be run through the project scripts:
+
+```bash
+npm run build
+npm test
+```
+
+The simulation engine is deterministic for a given seed and scenario. Policy
+comparisons pre-generate the same request workload for every strategy, then
+advance each run for the same simulated duration. This prevents a faster
+policy from accidentally receiving a different demand stream.
+
+For local Maven commands on Windows, make sure `JAVA_HOME` points to a JDK 25
+installation. A Java runtime without `javac`, or a Java 8 shim earlier in
+`PATH`, will make Maven fail during test compilation.

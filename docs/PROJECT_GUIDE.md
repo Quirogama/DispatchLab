@@ -27,16 +27,18 @@ service wrapper are represented in one runnable application.
 
 ## Architecture and data flow
 
-The browser owns the simulation state. `app.js` creates the graph and seeded
-random generator, creates requests, assigns idle couriers, advances the clock,
-updates traffic, renders the canvas, and refreshes the telemetry. The separate
-`dispatch-logic.js` module owns graph construction, edge lookup, congestion
-weights, nearest-node selection, and shortest-path calculations.
+The browser renders the simulation, but deterministic state transitions live in
+`simulation-engine.js`. The engine owns request generation, assignment, courier
+movement, traffic, completion state, and experiment replay. `app.js` owns
+controls, Canvas rendering, and DOM updates. The separate `dispatch-logic.js`
+module owns graph construction, edge lookup, congestion weights, and
+shortest-path calculations.
 
 Spring Boot does not currently run the simulation or persist data. It serves
 the files from `src/main/resources/static` and provides a health endpoint. Run
 comparisons are synchronous and remain in browser memory; refreshing the page
-clears the run history.
+clears the run history. The comparison runner pre-generates one request event
+stream and replays it for every policy.
 
 ## Policy definitions
 
@@ -60,9 +62,10 @@ diverge as the simulation proceeds.
 - **Waiting:** requests not yet assigned. Requests already assigned are excluded.
 - **Pending in run results:** all requests not yet delivered, including requests
   already assigned to a courier.
-- **Average distance:** congestion-weighted route cost on the pickup-plus-delivery
-  route selected when the courier receives the request, divided by completed
-  deliveries. It is reported in weighted blocks.
+- **Average distance:** completed route cost on the pickup-plus-delivery route,
+  divided by completed deliveries. Incomplete assignments are excluded.
+- **Planned average distance:** assigned route cost divided by all assigned
+  requests. This is separate from completed delivery performance.
 - **Average pickup time:** elapsed simulation time from assignment to pickup,
   averaged over completed deliveries.
 - **Average ETA:** estimated time for couriers currently traveling to pickup,
@@ -73,8 +76,6 @@ diverge as the simulation proceeds.
   180-second assignment-to-delivery target.
 - **P95 delivery time:** 95th percentile of assignment-to-delivery time for
   completed requests.
-- **Utilization:** courier busy-time divided by total available courier-time,
-  capped at 100%.
 - **Courier rating:** rolling score derived from pickup and delivery times,
   bounded from 3 to 5 by the current scoring formula.
 
@@ -96,11 +97,7 @@ diverge as the simulation proceeds.
 
 ## Suggested project extension plan
 
-1. Add JavaScript unit tests for seeded demand, routes, simulation invariants,
-   and benchmark reproducibility.
-2. Extract the remaining simulation state transitions from DOM code into a
-   testable engine.
-3. Add server-side experiment persistence and API validation if multi-user or
+1. Add server-side experiment persistence and API validation if multi-user or
    long-lived runs become project requirements.
-4. Add architecture and sequence diagrams, API contract examples, and a
+2. Add architecture and sequence diagrams, API contract examples, and a
    reproducible experiment protocol to the documentation.

@@ -101,12 +101,45 @@ export function shortestPath(graph, start, end) {
   const endKey = toNodeKey(end);
   const costs = new Map([[startKey, 0]]);
   const previous = new Map();
-  const queue = [{ key: startKey, cost: 0 }];
+  let sequence = 0;
+  const queue = [{ key: startKey, cost: 0, sequence: sequence++ }];
+  const compare = (left, right) => left.cost - right.cost || left.sequence - right.sequence;
+
+  const push = (item) => {
+    queue.push(item);
+    let index = queue.length - 1;
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (compare(queue[parent], queue[index]) <= 0) break;
+      [queue[parent], queue[index]] = [queue[index], queue[parent]];
+      index = parent;
+    }
+  };
+
+  const pop = () => {
+    const first = queue[0];
+    const last = queue.pop();
+    if (queue.length > 0 && last) {
+      queue[0] = last;
+      let index = 0;
+      while (true) {
+        const left = index * 2 + 1;
+        const right = left + 1;
+        let smallest = index;
+        if (left < queue.length && compare(queue[left], queue[smallest]) < 0) smallest = left;
+        if (right < queue.length && compare(queue[right], queue[smallest]) < 0) smallest = right;
+        if (smallest === index) break;
+        [queue[index], queue[smallest]] = [queue[smallest], queue[index]];
+        index = smallest;
+      }
+    }
+    return first;
+  };
 
   while (queue.length > 0) {
-    queue.sort((a, b) => a.cost - b.cost);
-    const current = queue.shift();
+    const current = pop();
     const currentKey = current.key;
+    if (current.cost > (costs.get(currentKey) ?? Infinity)) continue;
     if (currentKey === endKey) break;
 
     for (const neighbor of graph.adjacency.get(currentKey) ?? []) {
@@ -117,7 +150,7 @@ export function shortestPath(graph, start, end) {
       if (candidateCost < (costs.get(neighborKey) ?? Infinity)) {
         costs.set(neighborKey, candidateCost);
         previous.set(neighborKey, currentKey);
-        queue.push({ key: neighborKey, cost: candidateCost });
+        push({ key: neighborKey, cost: candidateCost, sequence: sequence++ });
       }
     }
   }
