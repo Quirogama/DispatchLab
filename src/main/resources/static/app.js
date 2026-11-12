@@ -4,7 +4,7 @@ import {
     addSimulationRequest,
     advanceSimulation,
     createSimulationState,
-    runExperiment,
+    generateScenarioEvents,
     travelTime
 } from './simulation-engine.js';
 
@@ -17,18 +17,20 @@ const playButton = document.querySelector('#playButton');
 const resetButton = document.querySelector('#resetButton');
 const exportJsonButton = document.querySelector('#exportJsonButton');
 const exportCsvButton = document.querySelector('#exportCsvButton');
+const reportButton = document.querySelector('#reportButton');
 const runState = document.querySelector('#runState');
 const statusLine = document.querySelector('#statusLine');
 const algorithmNote = document.querySelector('#algorithmNote');
 const grid = { columns: 15, rows: 6 };
+const SIMULATION_DURATION_SECONDS = 3600;
 const canvasRatio = 5.25 / grid.columns;
 const depots = [{ x: 1, y: 1 }, { x: 13, y: 1 }, { x: 2, y: 4 }, { x: 12, y: 4 }];
 const requestColors = ['#e5684c', '#f09b52', '#c94f59'];
 const courierNames = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
 const algorithmNotes = {
-    nearest: 'Minimizes street distance from courier to pickup.',
-    priority: 'Serves urgent requests before optimizing travel distance.',
-    balanced: 'Spreads work across the fleet to avoid overload.',
+    independent: 'Couriers accept requests individually after a realistic decision delay.',
+    self_selection: 'Couriers choose the request with the best local payoff from an efficiency bonus.',
+    first_available: 'Assigns the first idle courier without optimizing distance. Simple, but costly.',
     traffic: 'Chooses the courier with the fastest route through current traffic.'
 };
 let state;
@@ -36,6 +38,8 @@ let lastFrame = 0;
 let animationFrame;
 const experimentResults = [];
 let benchmarkMode = false;
+let comparisonRunning = false;
+let comparisonPaused = false;
 
 function createState() {
     const courierCount = Number(courierInput.value);
@@ -51,7 +55,7 @@ function createState() {
     });
 }
 
-function demandDelay() { return [2.8, 1.7, 0.85][Number(demandInput.value) - 1]; }
+function demandDelay() { return [56, 34, 17][Number(demandInput.value) - 1]; }
 
 function addRequest(station, destination) {
     addSimulationRequest(state, station, destination);
@@ -225,11 +229,10 @@ function updateMetrics() {
     document.querySelector('#eta').textContent = `${metrics.averageEta.toFixed(0)}s`;
     document.querySelector('#utilization').textContent = `${metrics.utilization.toFixed(0)}%`;
     document.querySelector('#p95Delivery').textContent = `${metrics.p95DeliveryTime.toFixed(0)}s`;
-    renderFleet();
     const minutes = Math.floor(state.elapsed / 60).toString().padStart(2, '0');
     const seconds = Math.floor(state.elapsed % 60).toString().padStart(2, '0');
     document.querySelector('#clock').textContent = `${minutes}:${seconds}`;
-    document.querySelector('#timelineFill').style.transform = `scaleX(${Math.min(state.elapsed / 180, 1)})`;
+    document.querySelector('#timelineFill').style.transform = `scaleX(${Math.min(state.elapsed / SIMULATION_DURATION_SECONDS, 1)})`;
 }
 
 function estimateArrival(courier, target) {
@@ -241,29 +244,6 @@ function estimateArrival(courier, target) {
     ) * 222;
 }
 
-function courierStatusLabel(courier) {
-    if (courier.status === 'to-pickup') return 'Heading to pickup';
-    if (courier.status === 'delivering') return 'Delivering order';
-    return 'Available';
-}
-
-function renderFleet() {
-    const fleetList = document.querySelector('#fleetList');
-    fleetList.innerHTML = state.couriers.map(courier => `
-        <div class="fleet-row">
-            <span class="fleet-marker ${courier.status}"></span>
-            <div class="fleet-identity">
-                <strong>${courier.profile.name}</strong>
-                <span>${courierStatusLabel(courier)}</span>
-            </div>
-            <div class="fleet-stats">
-                <strong>${courier.profile.rating.toFixed(1)}</strong>
-                <span>${courier.profile.completedOrders} delivered</span>
-            </div>
-        </div>
-    `).join('');
-}
-
 function renderResults() {
     const resultsList = document.querySelector('#resultsList');
     resultsList.innerHTML = experimentResults.length === 0
@@ -271,18 +251,53 @@ function renderResults() {
         : experimentResults.map(result => `
             <div class="result-row">
                 <strong>${result.algorithm}</strong>
-                <span>${result.delivered} delivered</span>
-                <span>${result.p95DeliveryTime.toFixed(0)}s P95 / ${result.serviceLevel.toFixed(0)}% SLA</span>
-                <span>${result.utilization.toFixed(0)}% fleet / ${result.rating.toFixed(1)} rating</span>
+                <span class="result-metric ${resultClass(result, 'delivered', true)}">${result.delivered} delivered</span>
+                <span class="result-metric ${resultClass(result, 'pending', false)}">${result.pending} pending</span>
+                <span class="result-metric ${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s P95</span>
+                <span class="result-metric ${resultClass(result, 'serviceLevel', true)}">${result.serviceLevel.toFixed(0)}% SLA</span>
+                <span class="result-metric ${resultClass(result, 'utilization', true)}">${result.utilization.toFixed(0)}% fleet</span>
+                <span class="result-metric ${resultClass(result, 'rating', true)}">${result.rating.toFixed(1)} rating</span>
             </div>
         `).join('');
+}
+
+function renderReport() {
+    const body = document.querySelector('#reportTableBody');
+    const summary = document.querySelector('#reportSummary');
+    if (experimentResults.length === 0) {
+        summary.textContent = 'Run a comparison to generate a report.';
+        body.innerHTML = '';
+        return;
+    }
+
+    const best = [...experimentResults].sort((a, b) => b.delivered - a.delivered)[0];
+    summary.textContent = `${best.algorithm} delivered the most orders in this workload. The report shows trade-offs, not a universal winner.`;
+    body.innerHTML = experimentResults.map(result => `
+        <tr>
+            <td><strong>${result.algorithm}</strong></td>
+            <td class="${resultClass(result, 'delivered', true)}">${result.delivered}</td>
+            <td class="${resultClass(result, 'pending', false)}">${result.pending}</td>
+            <td class="${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s</td>
+            <td class="${resultClass(result, 'serviceLevel', true)}">${result.serviceLevel.toFixed(0)}%</td>
+            <td class="${resultClass(result, 'rating', true)}">${result.rating.toFixed(1)}</td>
+        </tr>
+    `).join('');
+}
+
+function resultClass(result, metric, higherIsBetter) {
+    if (experimentResults.length < 2) return '';
+    const values = experimentResults.map(item => item[metric]);
+    const best = higherIsBetter ? Math.max(...values) : Math.min(...values);
+    const worst = higherIsBetter ? Math.min(...values) : Math.max(...values);
+    if (best === worst || result[metric] === best) return result[metric] === best ? 'result-best' : '';
+    return result[metric] === worst ? 'result-worst' : 'result-middle';
 }
 
 async function saveExperimentResults(results) {
     const seed = Number(document.querySelector('#seed').value) || 90210;
     const payload = {
         seed,
-        durationSeconds: 180,
+        durationSeconds: SIMULATION_DURATION_SECONDS,
         courierCount: Number(courierInput.value),
         results
     };
@@ -318,46 +333,153 @@ function recordResult() {
         });
 }
 
-function runComparison() {
+function wait(milliseconds) {
+    return new Promise(resolve => window.setTimeout(resolve, milliseconds));
+}
+
+async function waitForComparisonResume() {
+    while (comparisonPaused) await wait(100);
+}
+
+function setComparisonProgress(strategyIndex, progress) {
+    const progressBar = document.querySelector('#comparisonProgress');
+    const progressLabel = document.querySelector('#comparisonProgressLabel');
+    const progressWrap = document.querySelector('#comparisonProgressWrap');
+    if (!progressBar || !progressLabel) return;
+    progressWrap.classList.add('active');
+    const totalStrategies = algorithmsForComparison().length;
+    progressBar.value = ((strategyIndex + progress) / totalStrategies) * 100;
+    progressLabel.textContent = `Comparison ${strategyIndex + 1} / ${totalStrategies} · ${Math.round(progress * 100)}%`;
+    const activeStrategy = algorithmsForComparison()[strategyIndex];
+    document.querySelectorAll('.strategy-progress').forEach(row => {
+        const strategy = row.dataset.strategyProgress;
+        const bar = row.querySelector('progress');
+        const isComplete = strategyIndex > strategyIndexFor(strategy);
+        bar.value = isComplete ? 100 : strategy === activeStrategy ? progress * 100 : 0;
+        row.classList.toggle('active', strategy === activeStrategy);
+        row.classList.toggle('complete', isComplete);
+    });
+}
+
+function algorithmsForComparison() {
+    return ['first_available', 'independent', 'self_selection', 'traffic'];
+}
+
+function strategyIndexFor(strategy) {
+    return algorithmsForComparison().indexOf(strategy);
+}
+
+async function runComparison() {
+    if (comparisonRunning) return;
+
     const liveState = state;
     const liveAlgorithm = algorithmInput.value;
     const liveRunning = state.running;
-    const algorithms = ['nearest', 'priority', 'balanced', 'traffic'];
+    const algorithms = algorithmsForComparison();
     const benchmarkResults = [];
-
-    benchmarkMode = true;
-    runExperiment({
+    const seed = Number(document.querySelector('#seed').value) || 90210;
+    const courierCount = Number(courierInput.value);
+    const durationSeconds = SIMULATION_DURATION_SECONDS;
+    const stepMilliseconds = 2000;
+    const replayStepsPerTick = 3;
+    const replayDelay = 1;
+    const scenarioEvents = generateScenarioEvents({
         grid,
-        depots,
-        courierNames,
-        seed: Number(document.querySelector('#seed').value) || 90210,
-        courierCount: Number(courierInput.value),
+        seed,
+        courierCount,
         demandDelay: demandDelay(),
-        durationSeconds: 180,
-        algorithms
-    }).forEach(resultState => {
-        benchmarkResults.push(summarizeRun(
-            resultState,
-            algorithmInput.querySelector(`[value="${resultState.algorithm}"]`).textContent
-        ));
+        durationSeconds
     });
 
-    state = liveState;
-    algorithmInput.value = liveAlgorithm;
-    state.running = liveRunning;
-    benchmarkMode = false;
-    experimentResults.splice(0, experimentResults.length, ...benchmarkResults);
-    renderResults();
-    updateMetrics();
-    draw();
-    statusLine.textContent = 'Comparison complete. Saving experiment...';
-    saveExperimentResults(benchmarkResults)
-        .then(saved => {
-            statusLine.textContent = `Comparison saved as experiment ${saved.id.slice(0, 8)}.`;
-        })
-        .catch(error => {
-            statusLine.textContent = `Comparison complete, but save failed: ${error.message}`;
+    benchmarkMode = true;
+    comparisonRunning = true;
+    comparisonPaused = false;
+    const compareButton = document.querySelector('#compareButton');
+    const comparisonControls = [
+        resetButton,
+        algorithmInput,
+        demandInput,
+        courierInput,
+        document.querySelector('#seed')
+    ];
+    compareButton.disabled = true;
+    compareButton.textContent = 'Comparing...';
+    playButton.innerHTML = '<span id="playIcon">||</span> Pause comparison';
+    comparisonControls.forEach(control => { control.disabled = true; });
+    liveState.running = false;
+
+    try {
+        for (let index = 0; index < algorithms.length; index += 1) {
+            const algorithm = algorithms[index];
+            const label = algorithmInput.querySelector(`[value="${algorithm}"]`).textContent;
+            state = createSimulationState({
+                grid,
+                depots,
+                courierNames,
+                seed,
+                courierCount,
+                algorithm,
+                scenarioEvents,
+                demandDelay: demandDelay()
+            });
+
+            statusLine.textContent = `Comparing ${label} (${index + 1}/${algorithms.length})...`;
+            setComparisonProgress(index, 0);
+            for (let elapsed = 0; elapsed < durationSeconds * 1000; elapsed += stepMilliseconds * replayStepsPerTick) {
+                await waitForComparisonResume();
+                for (let step = 0; step < replayStepsPerTick; step += 1) {
+                    advanceSimulation(state, stepMilliseconds);
+                }
+                if (!document.hidden) {
+                    updateMetrics();
+                    draw();
+                    setComparisonProgress(
+                        index,
+                        Math.min((elapsed + (stepMilliseconds * replayStepsPerTick)) / (durationSeconds * 1000), 1)
+                    );
+                }
+                await wait(replayDelay);
+            }
+
+            benchmarkResults.push(summarizeRun(state, label));
+            renderResults();
+            await wait(350);
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && comparisonRunning) {
+                updateMetrics();
+                draw();
+            }
         });
+
+        experimentResults.splice(0, experimentResults.length, ...benchmarkResults);
+        renderResults();
+        statusLine.textContent = 'Comparison complete. Saving experiment...';
+        saveExperimentResults(benchmarkResults)
+            .then(saved => {
+                statusLine.textContent = `Comparison saved as experiment ${saved.id.slice(0, 8)}.`;
+            })
+            .catch(error => {
+                statusLine.textContent = `Comparison complete, but save failed: ${error.message}`;
+            });
+    } finally {
+        state = liveState;
+        algorithmInput.value = liveAlgorithm;
+        state.running = liveRunning;
+        benchmarkMode = false;
+        comparisonRunning = false;
+        comparisonPaused = false;
+        compareButton.disabled = false;
+        compareButton.textContent = 'Compare strategies';
+        comparisonControls.forEach(control => { control.disabled = false; });
+        playButton.innerHTML = liveRunning
+            ? '<span id="playIcon">||</span> Pause simulation'
+            : '<span id="playIcon">></span> Start simulation';
+        document.querySelector('#comparisonProgressWrap').classList.remove('active');
+        updateMetrics();
+        draw();
+    }
 }
 
 function downloadExperimentResults(format) {
@@ -396,6 +518,15 @@ function frame(timestamp) {
 }
 
 function toggleRunning() {
+    if (comparisonRunning) {
+        comparisonPaused = !comparisonPaused;
+        playButton.innerHTML = comparisonPaused
+            ? '<span id="playIcon">></span> Resume comparison'
+            : '<span id="playIcon">||</span> Pause comparison';
+        statusLine.textContent = comparisonPaused ? 'Comparison paused.' : 'Comparison resumed.';
+        return;
+    }
+
     state.running = !state.running;
     playButton.innerHTML = state.running ? '<span id="playIcon">||</span> Pause simulation' : '<span id="playIcon">></span> Start simulation';
     runState.textContent = state.running ? 'RUNNING' : 'PAUSED';
@@ -431,9 +562,20 @@ courierInput.addEventListener('input', () => {
 playButton.addEventListener('click', toggleRunning);
 resetButton.addEventListener('click', reset);
 document.querySelector('#recordButton').addEventListener('click', recordResult);
-document.querySelector('#compareButton').addEventListener('click', runComparison);
+const compareDialog = document.querySelector('#compareDialog');
+const compareButton = document.querySelector('#compareButton');
+compareButton.addEventListener('click', () => compareDialog.showModal());
+document.querySelector('#confirmCompareButton').addEventListener('click', event => {
+    event.preventDefault();
+    compareDialog.close();
+    runComparison();
+});
 exportJsonButton.addEventListener('click', () => downloadExperimentResults('json'));
 exportCsvButton.addEventListener('click', () => downloadExperimentResults('csv'));
+reportButton.addEventListener('click', () => {
+    renderReport();
+    document.querySelector('#reportDialog').showModal();
+});
 canvas.addEventListener('click', event => {
     const bounds = canvas.getBoundingClientRect();
     const pointer = {

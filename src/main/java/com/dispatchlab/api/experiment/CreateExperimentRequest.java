@@ -9,7 +9,7 @@ import java.util.List;
 
 public record CreateExperimentRequest(
     @NotNull @Min(0) Long seed,
-    @NotNull @Min(1) @Max(1000) Integer durationSeconds,
+    @NotNull @Min(1) @Max(3600) Integer durationSeconds,
     @NotNull @Min(0) @Max(100) Integer courierCount,
     @NotEmpty List<@Valid ExperimentResultRequest> results
 ) {

@@ -33,6 +33,7 @@
                     <div class="control-actions">
                         <button class="secondary-action" id="resetButton" type="button">Reset scenario</button>
                         <button class="primary-action" id="playButton" type="button"><span id="playIcon">></span> Start simulation</button>
+                        <button class="compare-action" id="compareButton" type="button">Compare strategies <span>4 runs</span></button>
                     </div>
                 </div>
                 <div class="board-wrap">
@@ -45,6 +46,19 @@
                     <div class="timeline-track"><span id="timelineFill"></span></div>
                     <span class="timeline-label">DAY 01</span>
                 </div>
+                <div class="comparison-progress" id="comparisonProgressWrap" aria-live="polite">
+                    <div class="comparison-progress-heading">
+                        <span id="comparisonProgressLabel">Comparison ready</span>
+                        <span>same workload</span>
+                    </div>
+                    <progress id="comparisonProgress" max="100" value="0"></progress>
+                    <div class="strategy-progress-list" id="strategyProgressList">
+                        <div class="strategy-progress" data-strategy-progress="first_available"><span>First available (naive)</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="independent"><span>Independent acceptance</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="self_selection"><span>Self-selection + bonus</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="traffic"><span>Traffic-aware dispatch</span><progress max="100" value="0"></progress></div>
+                    </div>
+                </div>
             </div>
 
             <aside class="control-panel">
@@ -52,12 +66,12 @@
                     <div class="section-title"><span>01</span><h2>Dispatch rule</h2></div>
                     <label class="select-label" for="algorithm">Assignment algorithm</label>
                     <select id="algorithm">
-                        <option value="nearest">Baseline: nearest</option>
-                        <option value="priority">Priority first</option>
-                        <option value="balanced">Balanced workload</option>
+                        <option value="independent">Independent acceptance</option>
+                        <option value="self_selection">Self-selection + bonus</option>
+                        <option value="first_available">First available (naive)</option>
                         <option value="traffic">Traffic-aware dispatch</option>
                     </select>
-                    <p class="algorithm-note" id="algorithmNote">Assigns the closest courier by street distance.</p>
+                    <p class="algorithm-note" id="algorithmNote">Couriers accept requests individually after a realistic decision delay.</p>
                 </section>
 
                 <section class="control-section scenario-section">
@@ -86,11 +100,11 @@
                 <section class="control-section results-section">
                     <div class="section-title"><span>05</span><h2>Run comparison</h2></div>
                     <p class="comparison-note">Same scenario, different dispatch rules.</p>
-                    <button class="primary-action compare-button" id="compareButton" type="button">Compare strategies</button>
                     <button class="secondary-action record-button" id="recordButton" type="button">Record current result</button>
                     <div class="export-actions">
                         <button class="secondary-action" id="exportJsonButton" type="button">Export JSON</button>
                         <button class="secondary-action" id="exportCsvButton" type="button">Export CSV</button>
+                        <button class="secondary-action" id="reportButton" type="button">Detailed report</button>
                     </div>
                     <div class="results-list" id="resultsList"></div>
                 </section>
@@ -98,14 +112,30 @@
                 <p class="status-line" id="statusLine">Ready for a new scenario.</p>
             </aside>
 
-            <section class="fleet-section">
-                <div class="section-title"><span>04</span><h2>Fleet roster</h2></div>
-                <div class="fleet-list" id="fleetList"></div>
-            </section>
         </section>
 
         <footer class="footer-note"><a href="/">Back to overview</a><span>Dispatch decisions under pressure.</span></footer>
     </main>
+    <dialog class="compare-dialog" id="compareDialog">
+        <form method="dialog">
+            <p class="eyebrow">RUN COMPARISON</p>
+            <h2>Compare five strategies?</h2>
+            <p>This will replay 60 simulated minutes five times using the same requests. The visual replay is accelerated and can be paused.</p>
+            <div class="dialog-actions">
+                <button class="secondary-action" value="cancel">Cancel</button>
+                <button class="primary-action" id="confirmCompareButton" value="confirm">Continue</button>
+            </div>
+        </form>
+    </dialog>
+    <dialog class="report-dialog" id="reportDialog">
+        <form method="dialog">
+            <p class="eyebrow">EXPERIMENT REPORT</p>
+            <h2>Dispatch performance</h2>
+            <p class="report-summary" id="reportSummary"></p>
+            <div class="report-table-wrap"><table class="report-table"><thead><tr><th>Strategy</th><th>Delivered</th><th>Pending</th><th>P95</th><th>SLA</th><th>Rating</th></tr></thead><tbody id="reportTableBody"></tbody></table></div>
+            <div class="dialog-actions"><button class="primary-action" value="close">Close report</button></div>
+        </form>
+    </dialog>
     <script type="module" src="/app.js"></script>
 </body>
 </html>

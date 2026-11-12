@@ -8,6 +8,7 @@ import {
   orderRequests
 } from './dispatch-logic.js';
 
+const COURIER_SPEED = 0.1;
 const DEFAULT_NAMES = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
 const DEFAULT_COLORS = ['#e5684c', '#f09b52', '#c94f59'];
 
@@ -45,7 +46,7 @@ export function travelTime(graph, from, to) {
     if (index === 0) return total;
     const edge = getEdge(graph, route[index - 1], node);
     const traffic = getEffectiveTraffic(edge);
-    return total + ((edge?.weight ?? 1) * traffic);
+    return total + ((edge?.weight ?? 1) * traffic) / COURIER_SPEED;
   }, 0);
 }
 
@@ -65,9 +66,18 @@ function updateCourierRating(state, courier, request) {
   const pickupTime = request.pickedUpAt - request.assignedAt;
   const deliveryTime = request.deliveredAt - request.pickedUpAt;
   const totalTime = request.deliveredAt - request.assignedAt;
-  const pickupScore = Math.max(0, 1 - pickupTime / 90);
-  const deliveryScore = Math.max(0, 1 - deliveryTime / 180);
-  const orderRating = 3 + ((pickupScore + deliveryScore) / 2) * 2;
+  const pickupScore = Math.max(0, 1 - pickupTime / 35);
+  const deliveryScore = Math.max(0, 1 - deliveryTime / 75);
+  const customerWaitScore = Math.exp(-Math.max(0, totalTime - 300) / 600);
+  const onTimeScore = totalTime <= state.serviceTargetSeconds ? 1 : 0;
+  const coordinationPenalty = state.algorithm === 'independent' || state.algorithm === 'self_selection'
+    ? 0.15
+    : state.algorithm === 'first_available' ? 0.25 : 0;
+  const orderRating = Math.max(1, Math.min(5,
+  1.7 + ((pickupScore * 0.25) + (deliveryScore * 0.25) +
+    (customerWaitScore * 0.4) + (onTimeScore * 0.1)) * 3.3 -
+  coordinationPenalty
+  ));
   const completed = courier.profile.completedOrders;
 
   courier.profile.rating = ((courier.profile.rating * completed) + orderRating) / (completed + 1);
@@ -83,11 +93,9 @@ function updateCourierRating(state, courier, request) {
 
 function chooseCourier(state, request, available) {
   const score = (courier) => {
+    if (state.algorithm === 'first_available') return courier.id;
     if (state.algorithm === 'traffic') return travelTime(state.graph, courier, request.pickup);
-    if (state.algorithm === 'balanced') {
-      return (courier.profile.completedOrders * state.balancePenalty) +
-        roadDistance(state.graph, courier, request.pickup);
-    }
+    if (state.algorithm === 'self_selection' && courier.id === request.selfSelectedCourierId) return -1;
     return roadDistance(state.graph, courier, request.pickup);
   };
 
@@ -96,10 +104,30 @@ function chooseCourier(state, request, available) {
 
 function assignRequests(state) {
   const available = state.couriers.filter(courier => courier.status === 'idle');
-  const queued = orderRequests(
+  let queued = orderRequests(
     state.requests.filter(request => request.assigned == null),
     state.algorithm
   );
+  if (state.algorithm === 'self_selection') {
+    const selfSelected = [];
+  const candidates = [...available];
+  while (candidates.length > 0 && queued.length > 0) {
+    let bestChoice;
+    candidates.forEach(courier => queued.forEach(request => {
+        const utility = state.selfSelectionBonus -
+          roadDistance(state.graph, courier, request.pickup);
+        if (!bestChoice || utility > bestChoice.utility ||
+          (utility === bestChoice.utility && request.createdAt < bestChoice.request.createdAt)) {
+          bestChoice = { courier, request, utility };
+        }
+      }));
+      selfSelected.push(bestChoice);
+      bestChoice.request.selfSelectedCourierId = bestChoice.courier.id;
+      candidates.splice(candidates.indexOf(bestChoice.courier), 1);
+      queued = queued.filter(request => request !== bestChoice.request);
+    }
+    queued = selfSelected.map(choice => choice.request);
+  }
 
   queued.forEach(request => {
     const courier = chooseCourier(state, request, available);
@@ -110,7 +138,14 @@ function assignRequests(state) {
     request.actualDistance = roadDistance(state.graph, courier, request.pickup) +
       roadDistance(state.graph, request.pickup, request.destination);
     state.totalAssignedDistance += request.actualDistance;
-    courier.status = 'to-pickup';
+    const delayedAcceptance = state.algorithm === 'independent' ||
+      state.algorithm === 'self_selection' || state.algorithm === 'first_available';
+    courier.status = delayedAcceptance ? 'accepting' : 'to-pickup';
+    courier.acceptanceRemaining = delayedAcceptance
+      ? state.algorithm === 'first_available'
+        ? state.naiveAcceptanceDelaySeconds
+        : state.selfSelectionAcceptanceDelaySeconds
+      : 0;
     courier.request = request;
     courier.route = [];
     available.splice(available.indexOf(courier), 1);
@@ -146,6 +181,15 @@ function completeCourierPhase(state, courier) {
 
 function moveCourier(state, courier, deltaSeconds) {
   if (!courier.request) return;
+  if (courier.status === 'accepting') {
+    courier.acceptanceRemaining -= deltaSeconds;
+    if (courier.acceptanceRemaining <= 0) {
+      courier.status = 'to-pickup';
+      setCourierRoute(state, courier, courier.request.pickup);
+    }
+    return;
+  }
+
   const target = courier.status === 'to-pickup'
     ? courier.request.pickup
     : courier.request.destination;
@@ -167,7 +211,7 @@ function moveCourier(state, courier, deltaSeconds) {
     { x: Math.round(courier.x), y: Math.round(courier.y) },
     next
   );
-  const speed = 1 / getEffectiveTraffic(edge);
+  const speed = COURIER_SPEED / getEffectiveTraffic(edge);
   const step = deltaSeconds * speed;
 
   if (segmentLength <= step) {
@@ -219,7 +263,10 @@ export function createSimulationState(options = {}) {
     nextRequestId: 0,
     algorithm: options.algorithm ?? 'nearest',
     demandDelay: options.demandDelay ?? 1.7,
-    balancePenalty: options.balancePenalty ?? 10,
+    acceptanceDelaySeconds: options.acceptanceDelaySeconds ?? 240,
+    selfSelectionBonus: options.selfSelectionBonus ?? 18,
+    selfSelectionAcceptanceDelaySeconds: options.selfSelectionAcceptanceDelaySeconds ?? 240,
+    naiveAcceptanceDelaySeconds: options.naiveAcceptanceDelaySeconds ?? 300,
     serviceTargetSeconds: options.serviceTargetSeconds ?? 180,
     scenarioEvents: options.scenarioEvents ?? null,
     eventIndex: 0,
@@ -232,6 +279,7 @@ export function createSimulationState(options = {}) {
       y: depots[index % depots.length]?.y ?? 0,
       home: { ...(depots[index % depots.length] ?? { x: 0, y: 0 }) },
       status: 'idle',
+      acceptanceRemaining: 0,
       request: null,
       route: [],
       profile: {
@@ -325,7 +373,7 @@ export function runExperiment(options = {}) {
   const durationSeconds = options.durationSeconds ?? 180;
   const stepMilliseconds = options.stepMilliseconds ?? 100;
   const events = options.scenarioEvents ?? generateScenarioEvents(options);
-  const algorithms = options.algorithms ?? ['nearest', 'priority', 'balanced', 'traffic'];
+  const algorithms = options.algorithms ?? ['first_available', 'independent', 'self_selection', 'traffic'];
 
   return algorithms.map(algorithm => {
     const state = createSimulationState({

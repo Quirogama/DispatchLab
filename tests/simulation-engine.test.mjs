@@ -55,9 +55,15 @@ test('scenario events are deterministic for the same seed', () => {
 });
 
 test('experiments replay the same workload for every policy', () => {
-  const results = runExperiment({ ...scenario, durationSeconds: 20 });
+  const results = runExperiment({
+    ...scenario,
+    durationSeconds: 20,
+    algorithms: ['first_available', 'independent', 'self_selection', 'traffic']
+  });
 
   assert.equal(results.length, 4);
+  assert.equal(results[0].scenarioEvents.length, results[3].scenarioEvents.length);
+  assert.deepEqual(results[0].scenarioEvents, results[3].scenarioEvents);
   assert.deepEqual(
     results.map(result => result.completedRequests.map(request => request.id)),
     results.map(result => result.completedRequests.map(request => request.id))
@@ -67,4 +73,65 @@ test('experiments replay the same workload for every policy', () => {
     assert.ok(result.delivered <= result.completedRequests.length);
     assert.ok(result.totalCompletedDistance <= result.totalAssignedDistance);
   });
+});
+
+test('independent acceptance remains the autonomous nearest-courier baseline', () => {
+  const [traffic, independent] = runExperiment({
+    ...scenario,
+    courierCount: 2,
+    demandDelay: 0.85,
+    durationSeconds: 30,
+    algorithms: ['traffic', 'independent']
+  });
+
+  assert.ok(independent.delivered <= traffic.delivered);
+});
+
+test('bonus self-selection stays autonomous and is distinct from independent acceptance', () => {
+  const results = runExperiment({
+    ...scenario,
+    courierCount: 6,
+    demandDelay: 17,
+    durationSeconds: 3600,
+    stepMilliseconds: 2000,
+    algorithms: ['independent', 'self_selection', 'traffic']
+  });
+
+  assert.equal(results[0].selfSelectionAcceptanceDelaySeconds,
+    results[1].selfSelectionAcceptanceDelaySeconds);
+  assert.ok(results[1].delivered <= results[2].delivered);
+});
+
+test('medium demand creates measurable backlog instead of perfect throughput', () => {
+  const options = {
+    ...scenario,
+    courierCount: 6,
+    demandDelay: 1.7,
+    durationSeconds: 180,
+    algorithms: ['independent', 'self_selection', 'first_available', 'traffic']
+  };
+  const results = runExperiment(options);
+  const requested = generateScenarioEvents(options).length;
+
+  assert.ok(requested > 100);
+  assert.ok(results.some(result => result.delivered < requested));
+  assert.ok(new Set(results.map(result => result.delivered)).size > 1);
+});
+
+test('first available is a deterministic naive policy with a real trade-off', () => {
+  const results = runExperiment({
+    ...scenario,
+    courierCount: 6,
+    demandDelay: 17,
+    durationSeconds: 3600,
+    stepMilliseconds: 2000,
+    algorithms: ['nearest', 'first_available']
+  });
+
+  assert.equal(results.length, 2);
+  assert.ok(results[1].delivered < results[0].delivered);
+  assert.ok(results[1].deliveryTimes.length > 0);
+  assert.ok(results[1].deliveryTimes.reduce((a, b) => a + b, 0) /
+    results[1].deliveryTimes.length > results[0].deliveryTimes.reduce((a, b) => a + b, 0) /
+    results[0].deliveryTimes.length);
 });

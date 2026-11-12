@@ -15,12 +15,11 @@ service wrapper are represented in one runnable application.
 | Street network | Configurable rectangular grid graph with congestion-weighted shortest paths | `static/dispatch-logic.js` |
 | Delivery requests | Random arrival, random destination, random priority, and map-click creation | `static/app.js` |
 | Courier fleet | Couriers start at four depots and move through pickup and delivery states | `static/app.js` |
-| Dispatch policies | Nearest, priority-first queue, balanced completed workload, and traffic-aware courier choice | `static/app.js` |
+| Dispatch policies | First-available naive dispatch, independent acceptance, self-selection with an efficiency bonus, and traffic-aware courier choice | `static/simulation-engine.js` |
 | Operating conditions | Normal, rush, shortage, and downtown presets; demand and fleet controls | `static/simulator.html`, `static/app.js` |
-| Reproducibility | Seeded linear-congruential random number generator; benchmark replays each policy with the same seed and controls | `static/app.js` |
+| Reproducibility | Seeded linear-congruential random number generator; benchmark replays each policy with the same seed and controls | `static/simulation-engine.js`, `static/app.js` |
 | Traffic | Time-varying traffic on street edges; downtown applies a stronger traffic factor | `static/app.js`, `static/dispatch-logic.js` |
 | Telemetry | Delivered, queued, weighted route cost, service level, average pickup time, pickup ETA, P95 delivery time, and fleet utilization | `static/simulator.html`, `static/app.js`, `static/metrics.js` |
-| Fleet roster | Current status, completed deliveries, and rolling courier rating | `static/app.js` |
 | Experiments | Record a run or benchmark all policies; compare delivery, time, distance, utilization, and rating | `static/app.js` |
 | Service/API | Spring Boot serves static resources, exposes health, and stores experiment results through a validated API | `api/HealthController.java`, `api/experiment/ExperimentController.java` |
 | Packaging | Maven build and Docker Compose launcher | `pom.xml`, `Dockerfile`, `docker-compose.yml`, `run.bat` |
@@ -46,11 +45,13 @@ saving the results through the API.
 
 - **Baseline: nearest:** assigns queued requests in arrival order to the idle
   courier with the fewest street edges to pickup.
-- **Priority first:** orders queued requests by descending priority, then uses
-  the same nearest-courier selection. Equal priorities retain arrival order.
-- **Balanced workload:** processes requests in arrival order and, among idle
-  couriers, prefers the courier with fewer completed deliveries, then breaks
-  ties by street distance to pickup.
+- **Self-selection + bonus:** models couriers choosing the request with the
+  best local payoff from an efficiency bonus minus pickup distance. It is
+  operationally viable because drivers retain agency, but local incentives
+  can leave the fleet less coordinated than a central dispatcher.
+- **Independent acceptance:** keeps the nearest-courier assignment, but models
+  each courier accepting individually after the same decision delay used by
+  self-selection. This is the simpler autonomous baseline.
 - **Traffic-aware dispatch:** assigns queued requests in arrival order to the
   idle courier with the lowest current traffic-weighted route cost to pickup.
 
@@ -78,15 +79,25 @@ diverge as the simulation proceeds.
   180-second assignment-to-delivery target.
 - **P95 delivery time:** 95th percentile of assignment-to-delivery time for
   completed requests.
-- **Courier rating:** rolling score derived from pickup and delivery times,
-  bounded from 3 to 5 by the current scoring formula.
+- **Courier rating:** rolling score derived from pickup time, delivery time,
+  total customer wait, on-time completion, and small coordination penalties.
+  The first five minutes of total wait are tolerated; after that, the wait
+  component decays exponentially, making a 30-minute delivery materially
+  worse than a five-minute delivery. The result is bounded from 1 to 5.
+- In comparison results, green, amber, and red identify the best, middle, and
+  worst relative value for each metric; they describe the current benchmark,
+  not an absolute industry target.
+- **Benchmark pressure:** the default medium workload generates about 212 requests
+  over 3,600 simulated seconds (60 minutes). Courier movement uses a calibrated base speed
+  before traffic weighting, so finite fleet capacity creates a visible backlog
+  instead of allowing every policy to deliver every request.
 
 ## Known limitations and next engineering steps
 
 1. The simulator remains client-side, while saved experiment results are
    persisted server-side. There is still no authentication or ownership model.
-2. The balanced policy considers completed deliveries, but not a richer measure
-   such as cumulative workload, fairness, or courier availability history.
+2. Self-selection models a simple incentive scheme; real deployments would
+   need configurable bonuses, driver preferences, and marketplace constraints.
 3. The simulation uses a simplified fixed 180-second service target; scenario-
    specific SLAs and configurable vehicle speeds are future improvements.
 4. Scenario controls describe a simplified model: rush hour raises demand,
