@@ -326,3 +326,87 @@ input[type='range'] { accent-color: var(--teal); cursor: pointer; width: 100%; }
     .capabilities-grid { gap: 25px; grid-template-columns: 1fr; }
     .capability-card h3 { margin-top: 18px; }
 }
+
+/* Landing page: tighter editorial layout and stronger visual hierarchy. */
+.overview-page {
+    background: radial-gradient(circle at 82% 4%, rgba(22,139,131,.14), transparent 28%), linear-gradient(135deg, #f8f6ef 0%, var(--paper) 54%, #eef4f0 100%);
+}
+.overview-shell { max-width: 1440px; margin: 0 auto; padding: 24px clamp(22px, 5vw, 72px) 20px; }
+.overview-header { border-bottom: 1px solid rgba(24,35,41,.12); padding-bottom: 18px; }
+.overview-hero { gap: clamp(32px, 5vw, 72px); padding: clamp(58px, 8vw, 100px) 0 clamp(58px, 7vw, 86px); }
+.overview-hero h1 { font-size: clamp(54px, 8vw, 116px); letter-spacing: -5px; line-height: .88; }
+.hero-intro { font-size: clamp(15px, 1.3vw, 18px); margin-top: 24px; }
+.hero-stage { gap: clamp(32px, 5vw, 78px); grid-template-columns: minmax(0, 1.35fr) minmax(270px, .7fr); }
+.mini-dispatch { box-shadow: 14px 16px 0 rgba(24,35,41,.06), 0 18px 40px rgba(24,35,41,.08); padding: clamp(13px, 1.8vw, 20px); }
+.mini-map { height: clamp(205px, 19vw, 270px); }
+.hero-copy { max-width: 420px; }
+.hero-lede { font-size: 15px; margin-bottom: 24px; }
+.launch-button { box-shadow: 0 8px 18px rgba(24,35,41,.12); }
+.story-band {
+    background: rgba(255,253,248,.42);
+    gap: 24px clamp(24px, 3vw, 52px);
+    grid-template-columns: minmax(160px,.55fr) minmax(300px,1fr) minmax(390px,1.2fr);
+    min-height: 0;
+    padding: clamp(30px,4vw,52px) 0;
+}
+.story-copy { font-size: clamp(22px,2.4vw,34px); margin-top: 30px; max-width: 540px; }
+.decision-map { height: 190px; margin-top: 12px; }
+.overview-explanation {
+    gap: clamp(38px,7vw,110px);
+    grid-template-columns: minmax(260px,.72fr) minmax(0,1.35fr);
+    min-height: 0;
+    padding: clamp(58px,7vw,90px) 0;
+}
+.overview-explanation h2, .capabilities-section h2 { font-size: clamp(29px,3.2vw,46px); }
+.explanation-body > p { font-size: 14px; margin-bottom: 22px; max-width: 580px; }
+.chain-visual { margin: 24px 0; }
+.method-grid { padding-top: 14px; }
+.method-grid strong { font-size: 14px; }
+.step-icon { height: 48px; margin-top: 20px; width: 48px; }
+.capabilities-section {
+    gap: clamp(32px,6vw,90px);
+    min-height: 0;
+    padding: clamp(54px,7vw,86px) 0;
+}
+.capabilities-grid { gap: 14px; }
+.capability-card {
+    background: rgba(255,253,248,.62);
+    border: 1px solid rgba(24,35,41,.1);
+    min-height: 250px;
+    padding: 20px;
+    transition: box-shadow .25s ease, transform .25s ease;
+}
+.capability-card:hover { box-shadow: 0 14px 30px rgba(24,35,41,.1); transform: translateY(-4px); }
+.capability-card h3 { font-size: 17px; margin-top: 22px; }
+.capability-card p { font-size: 12px; line-height: 1.45; max-width: 220px; }
+.card-orb { bottom: 20px; height: 48px; right: 20px; width: 48px; }
+.overview-footer { padding-top: 18px; }
+
+@media (max-width: 900px) {
+    .hero-stage, .overview-explanation, .capabilities-section { grid-template-columns: 1fr; }
+    .hero-copy { max-width: 560px; }
+    .story-band { grid-template-columns: 150px 1fr; }
+    .story-copy { grid-column: 2; grid-row: 1; margin-top: 0; }
+    .story-log, .decision-map { grid-column: 2; }
+    .story-log { grid-row: 2; }
+    .decision-map { grid-row: 3; }
+    .capabilities-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (max-width: 650px) {
+    .overview-shell { padding-inline: 18px; }
+    .overview-hero { padding: 52px 0 60px; }
+    .overview-hero h1 { letter-spacing: -2.5px; }
+    .hero-intro { margin-left: 0; }
+    .hero-stage { gap: 34px; }
+    .mini-dispatch { transform: none; }
+    .story-band { display: grid; grid-template-columns: 1fr; }
+    .story-copy, .story-log, .decision-map { grid-column: 1; }
+    .story-copy { grid-row: 2; }
+    .story-log { grid-row: 3; }
+    .decision-map { grid-row: 4; }
+    .overview-explanation, .capabilities-section { padding: 56px 0; }
+    .method-grid, .capabilities-grid { grid-template-columns: 1fr; }
+    .capability-card { min-height: 190px; }
+    .overview-footer { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
