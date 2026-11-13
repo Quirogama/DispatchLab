@@ -99,7 +99,51 @@ test('bonus self-selection stays autonomous and is distinct from independent acc
 
   assert.equal(results[0].selfSelectionAcceptanceDelaySeconds,
     results[1].selfSelectionAcceptanceDelaySeconds);
+  assert.equal(results[1].selfSelectionAcceptanceDelaySeconds, 200);
   assert.ok(results[1].delivered <= results[2].delivered);
+});
+
+test('medium-demand self-selection lands in the intended throughput band', () => {
+  const result = runExperiment({
+    seed: 90210,
+    courierCount: 6,
+    grid: { columns: 15, rows: 6 },
+    depots: [{ x: 1, y: 1 }, { x: 13, y: 1 }, { x: 2, y: 4 }, { x: 12, y: 4 }],
+    demandDelay: 34,
+    durationSeconds: 3600,
+    stepMilliseconds: 2000,
+    algorithms: ['self_selection']
+  })[0];
+
+  assert.ok(result.delivered >= 70 && result.delivered <= 80);
+});
+
+test('self-selection uses a meaningful priority bonus and blended traffic cost', () => {
+  const baseline = runExperiment({
+    ...scenario,
+    courierCount: 6,
+    demandDelay: 17,
+    durationSeconds: 3600,
+    stepMilliseconds: 2000,
+    selfSelectionTrafficWeight: 0,
+    selfSelectionBonus: 0,
+    algorithms: ['self_selection']
+  })[0];
+  const balanced = runExperiment({
+    ...scenario,
+    courierCount: 6,
+    demandDelay: 17,
+    durationSeconds: 3600,
+    stepMilliseconds: 2000,
+    algorithms: ['self_selection']
+  })[0];
+
+  assert.notDeepEqual(
+    balanced.completedRequests.map(request => request.id),
+    baseline.completedRequests.map(request => request.id)
+  );
+  assert.equal(balanced.selfSelectionTrafficWeight, 0.45);
+  assert.equal(balanced.selfSelectionBonus, 6);
 });
 
 test('medium demand creates measurable backlog instead of perfect throughput', () => {

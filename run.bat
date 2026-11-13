@@ -2,7 +2,7 @@
 setlocal
 cd /d "%~dp0"
 
-echo Starting DispatchLab...
+echo Starting DispatchLab in watch mode...
 where docker >nul 2>&1
 if errorlevel 1 (
     echo Docker was not found. Install Docker Desktop and try again.
@@ -10,9 +10,9 @@ if errorlevel 1 (
     exit /b 1
 )
 
-docker compose up --build
+docker compose watch
 if errorlevel 1 (
     echo.
-    echo DispatchLab could not start. Make sure Docker Desktop is running.
+    echo DispatchLab watch mode could not start. Make sure Docker Desktop is running.
     pause
 )

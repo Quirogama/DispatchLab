@@ -45,14 +45,38 @@ documentation lives under `docs/`.
 From the project root:
 
 ```bash
+copy .env.example .env
+# Replace the local database password in .env if desired
 docker compose up --build
 ```
+
+Compose reads database credentials from `.env`; credentials are intentionally
+not stored in the repository. On macOS/Linux, use `cp .env.example .env`
+instead of `copy`.
 
 Then open:
 
 ```text
 http://localhost:8080
 ```
+
+The application sends `Cache-Control: no-store` for its HTML, CSS, and
+JavaScript resources, so a normal browser refresh requests the current files.
+The container still needs to rebuild when source files change; use the watch
+launcher below for that automatic rebuild.
+
+### Automatic updates while developing
+
+To keep the container running and automatically rebuild the application after
+changes to Java, HTML, CSS, or JavaScript files, use:
+
+```bash
+docker compose watch
+```
+
+On Windows, double-click `watch.bat`. This watches `src/`, `pom.xml`, and the
+Dockerfile, then rebuilds and restarts the application container when a
+relevant file changes. The PostgreSQL volume is preserved.
 
 ### Windows one-click launcher
 
@@ -102,6 +126,12 @@ The simulation engine is deterministic for a given seed and scenario. Policy
 comparisons pre-generate the same request workload for every strategy, then
 advance each run for the same simulated duration. This prevents a faster
 policy from accidentally receiving a different demand stream.
+
+After a comparison finishes, use **Open analysis dashboard** to open the
+standalone `/dashboard.html` operations view. It presents throughput and
+quality charts, a complete trade-off matrix, and automatically generated
+insights. The latest comparison is kept in browser `localStorage`, so it
+remains available in the same browser session, and can be exported as JSON.
 
 ## Experiment API
 

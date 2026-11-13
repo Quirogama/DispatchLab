@@ -30,6 +30,9 @@ jobs:
       - name: Run JavaScript tests
         run: npm test
 
+      - name: Check JavaScript syntax
+        run: npm run build
+
       - name: Run Maven tests
         run: ./mvnw --batch-mode test
 

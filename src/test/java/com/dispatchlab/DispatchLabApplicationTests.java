@@ -91,4 +91,43 @@ class DispatchLabApplicationTests {
             .andExpect(jsonPath("$.message").value("Request validation failed"))
             .andExpect(jsonPath("$.details", hasSize(2)));
     }
+
+    @Test
+    void malformedJsonReturnsStructuredBadRequest() throws Exception {
+        mockMvc.perform(post("/api/experiments")
+                .contentType("application/json")
+                .content("{"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Request body is missing or malformed"));
+    }
+
+    @Test
+    void invalidResultRangesAreRejected() throws Exception {
+        mockMvc.perform(post("/api/experiments")
+                .contentType("application/json")
+                .content("""
+                    {
+                      "seed": 1,
+                      "durationSeconds": 60,
+                      "courierCount": 2,
+                      "results": [{
+                        "algorithm": "traffic",
+                        "couriers": 2,
+                        "delivered": 1,
+                        "waiting": 0,
+                        "pending": 0,
+                        "assigned": 1,
+                        "averageDistance": 1.0,
+                        "plannedAverageDistance": 1.0,
+                        "averagePickupTime": 1.0,
+                        "p95DeliveryTime": 1.0,
+                        "serviceLevel": 101.0,
+                        "utilization": 50.0,
+                        "rating": 4.0
+                      }]
+                    }
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Request validation failed"));
+    }
 }

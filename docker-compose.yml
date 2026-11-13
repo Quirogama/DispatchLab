@@ -4,12 +4,12 @@ services:
     container_name: dispatchlab-database
     environment:
       POSTGRES_DB: dispatchlab
-      POSTGRES_USER: dispatchlab
-      POSTGRES_PASSWORD: dispatchlab
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - dispatchlab-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U dispatchlab -d dispatchlab"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -23,12 +23,20 @@ services:
       - "8080:8080"
     environment:
       DB_URL: jdbc:postgresql://database:5432/dispatchlab
-      DB_USERNAME: dispatchlab
-      DB_PASSWORD: dispatchlab
+      DB_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     depends_on:
       database:
         condition: service_healthy
     restart: unless-stopped
+    develop:
+      watch:
+        - action: rebuild
+          path: ./src
+        - action: rebuild
+          path: ./pom.xml
+        - action: rebuild
+          path: ./Dockerfile
 
 volumes:
   dispatchlab-data:

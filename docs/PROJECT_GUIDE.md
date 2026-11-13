@@ -46,9 +46,12 @@ saving the results through the API.
 - **Baseline: nearest:** assigns queued requests in arrival order to the idle
   courier with the fewest street edges to pickup.
 - **Self-selection + bonus:** models couriers choosing the request with the
-  best local payoff from an efficiency bonus minus pickup distance. It is
-  operationally viable because drivers retain agency, but local incentives
-  can leave the fleet less coordinated than a central dispatcher.
+  best local payoff from a priority-weighted incentive minus a blended pickup
+  cost. The cost is 55% distance and 45% traffic-aware distance, so couriers
+  retain agency while still responding to congestion. It is intentionally a
+  middle ground between independent acceptance and centralized
+  traffic-aware dispatch. Its 200-second acceptance delay is also intentionally
+  between independent acceptance and immediate centralized dispatch.
 - **Independent acceptance:** keeps the nearest-courier assignment, but models
   each courier accepting individually after the same decision delay used by
   self-selection. This is the simpler autonomous baseline.
@@ -96,8 +99,9 @@ diverge as the simulation proceeds.
 
 1. The simulator remains client-side, while saved experiment results are
    persisted server-side. There is still no authentication or ownership model.
-2. Self-selection models a simple incentive scheme; real deployments would
-   need configurable bonuses, driver preferences, and marketplace constraints.
+2. Self-selection models a simple configurable incentive scheme; real
+   deployments would need driver preferences, marketplace constraints, and
+   calibration against observed acceptance behavior.
 3. The simulation uses a simplified fixed 180-second service target; scenario-
    specific SLAs and configurable vehicle speeds are future improvements.
 4. Scenario controls describe a simplified model: rush hour raises demand,

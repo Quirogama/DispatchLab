@@ -3,6 +3,7 @@ package com.dispatchlab.api;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.server.ResponseStatusException;
@@ -34,6 +35,17 @@ public class ApiExceptionHandler {
             status.value(),
             status.toString(),
             exception.getReason(),
+            List.of()
+        ));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnreadableMessage() {
+        return ResponseEntity.badRequest().body(new ApiErrorResponse(
+            Instant.now(),
+            HttpStatus.BAD_REQUEST.value(),
+            "Bad Request",
+            "Request body is missing or malformed",
             List.of()
         ));
     }

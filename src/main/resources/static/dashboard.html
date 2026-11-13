@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DispatchLab | Experiment dashboard</title>
+    <link rel="stylesheet" href="/styles.css?v=20261112-5">
+</head>
+<body class="dashboard-page">
+    <main class="dashboard-shell">
+        <header class="dashboard-header">
+            <div>
+                <a class="simulator-logo" href="/">DISPATCH<span>LAB</span></a>
+                <p class="eyebrow dashboard-eyebrow">EXPERIMENT ANALYTICS / DECISION SUPPORT</p>
+                <h1>Dispatch performance<br><em>under pressure.</em></h1>
+            </div>
+            <div class="dashboard-actions">
+                <a class="secondary-action dashboard-link" href="/simulator.html">Back to simulator</a>
+                <button class="primary-action dashboard-link" id="exportDashboardButton" type="button">Export analysis</button>
+            </div>
+        </header>
+
+        <section class="dashboard-context" id="dashboardContext" aria-live="polite"></section>
+        <section class="dashboard-empty" id="dashboardEmpty" hidden>
+            <p class="eyebrow">NO EXPERIMENT LOADED</p>
+            <h2>Run a comparison to build your first dashboard.</h2>
+            <a class="primary-action dashboard-link" href="/simulator.html">Open simulator</a>
+        </section>
+
+        <div id="dashboardContent" hidden>
+            <section class="dashboard-kpis" id="dashboardKpis" aria-label="Experiment summary"></section>
+
+            <section class="dashboard-grid">
+                <article class="dashboard-card chart-card">
+                    <div class="card-heading">
+                        <div><p class="eyebrow">THROUGHPUT</p><h2>Orders delivered</h2></div>
+                        <span class="chart-note">higher is better</span>
+                    </div>
+                    <div class="horizontal-chart" id="throughputChart"></div>
+                </article>
+                <article class="dashboard-card chart-card">
+                    <div class="card-heading">
+                        <div><p class="eyebrow">SERVICE QUALITY</p><h2>SLA and rating</h2></div>
+                        <span class="chart-note">two indicators</span>
+                    </div>
+                    <div class="quality-chart" id="qualityChart"></div>
+                </article>
+            </section>
+
+            <section class="dashboard-card">
+                <div class="card-heading">
+                    <div><p class="eyebrow">TRADE-OFF MATRIX</p><h2>Compare every strategy</h2></div>
+                    <span class="chart-note">same seed / same requests</span>
+                </div>
+                <div class="dashboard-table-wrap">
+                    <table class="dashboard-table">
+                        <thead><tr><th>Strategy</th><th>Delivered</th><th>Pending</th><th>Avg. distance</th><th>Pickup time</th><th>P95</th><th>SLA</th><th>Fleet</th><th>Rating</th></tr></thead>
+                        <tbody id="dashboardTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="dashboard-insights">
+                <div><p class="eyebrow">READOUT</p><h2>What this run tells us</h2></div>
+                <div class="insight-list" id="insightList"></div>
+            </section>
+        </div>
+
+        <footer class="footer-note"><a href="/simulator.html">Run another scenario</a><span>Dispatch decisions under pressure.</span></footer>
+    </main>
+    <script type="module" src="/dashboard.js?v=20261112-1"></script>
+</body>
+</html>

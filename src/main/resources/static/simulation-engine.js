@@ -40,6 +40,22 @@ function roadDistance(graph, from, to) {
   }, 0) : 0;
 }
 
+function trafficWeightedDistance(graph, from, to) {
+  const route = shortestPath(graph, from, to);
+  return route.length > 1 ? route.reduce((total, node, index) => {
+    if (index === 0) return total;
+    const edge = getEdge(graph, route[index - 1], node);
+    const trafficMultiplier = getEffectiveTraffic(edge) / 0.2;
+    return total + (edge?.weight ?? 1) * trafficMultiplier;
+  }, 0) : 0;
+}
+
+function selfSelectionCost(state, courier, request) {
+  const distance = roadDistance(state.graph, courier, request.pickup);
+  const trafficDistance = trafficWeightedDistance(state.graph, courier, request.pickup);
+  return distance + state.selfSelectionTrafficWeight * (trafficDistance - distance);
+}
+
 export function travelTime(graph, from, to) {
   const route = shortestPath(graph, from, to);
   return route.reduce((total, node, index) => {
@@ -114,8 +130,8 @@ function assignRequests(state) {
   while (candidates.length > 0 && queued.length > 0) {
     let bestChoice;
     candidates.forEach(courier => queued.forEach(request => {
-        const utility = state.selfSelectionBonus -
-          roadDistance(state.graph, courier, request.pickup);
+        const utility = (request.priority * state.selfSelectionBonus) -
+          selfSelectionCost(state, courier, request);
         if (!bestChoice || utility > bestChoice.utility ||
           (utility === bestChoice.utility && request.createdAt < bestChoice.request.createdAt)) {
           bestChoice = { courier, request, utility };
@@ -144,7 +160,9 @@ function assignRequests(state) {
     courier.acceptanceRemaining = delayedAcceptance
       ? state.algorithm === 'first_available'
         ? state.naiveAcceptanceDelaySeconds
-        : state.selfSelectionAcceptanceDelaySeconds
+        : state.algorithm === 'self_selection'
+          ? state.selfSelectionAcceptanceDelaySeconds
+          : state.acceptanceDelaySeconds
       : 0;
     courier.request = request;
     courier.route = [];
@@ -264,8 +282,9 @@ export function createSimulationState(options = {}) {
     algorithm: options.algorithm ?? 'nearest',
     demandDelay: options.demandDelay ?? 1.7,
     acceptanceDelaySeconds: options.acceptanceDelaySeconds ?? 240,
-    selfSelectionBonus: options.selfSelectionBonus ?? 18,
-    selfSelectionAcceptanceDelaySeconds: options.selfSelectionAcceptanceDelaySeconds ?? 240,
+    selfSelectionBonus: options.selfSelectionBonus ?? 6,
+    selfSelectionTrafficWeight: options.selfSelectionTrafficWeight ?? 0.45,
+    selfSelectionAcceptanceDelaySeconds: options.selfSelectionAcceptanceDelaySeconds ?? 200,
     naiveAcceptanceDelaySeconds: options.naiveAcceptanceDelaySeconds ?? 300,
     serviceTargetSeconds: options.serviceTargetSeconds ?? 180,
     scenarioEvents: options.scenarioEvents ?? null,

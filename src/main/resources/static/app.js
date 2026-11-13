@@ -29,7 +29,7 @@ const requestColors = ['#e5684c', '#f09b52', '#c94f59'];
 const courierNames = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
 const algorithmNotes = {
     independent: 'Couriers accept requests individually after a realistic decision delay.',
-    self_selection: 'Couriers choose the request with the best local payoff from an efficiency bonus.',
+    self_selection: 'Couriers choose a priority-weighted request using blended distance and traffic cost, with a shorter decision delay.',
     first_available: 'Assigns the first idle courier without optimizing distance. Simple, but costly.',
     traffic: 'Chooses the courier with the fastest route through current traffic.'
 };
@@ -37,6 +37,7 @@ let state;
 let lastFrame = 0;
 let animationFrame;
 const experimentResults = [];
+const DASHBOARD_STORAGE_KEY = 'dispatchlab.latest-experiment';
 let benchmarkMode = false;
 let comparisonRunning = false;
 let comparisonPaused = false;
@@ -250,7 +251,7 @@ function renderResults() {
         ? '<p class="empty-results">Run a scenario and record its result.</p>'
         : experimentResults.map(result => `
             <div class="result-row">
-                <strong>${result.algorithm}</strong>
+                <strong>${escapeHtml(result.algorithm)}</strong>
                 <span class="result-metric ${resultClass(result, 'delivered', true)}">${result.delivered} delivered</span>
                 <span class="result-metric ${resultClass(result, 'pending', false)}">${result.pending} pending</span>
                 <span class="result-metric ${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s P95</span>
@@ -261,27 +262,33 @@ function renderResults() {
         `).join('');
 }
 
-function renderReport() {
-    const body = document.querySelector('#reportTableBody');
-    const summary = document.querySelector('#reportSummary');
+function saveDashboardSnapshot(results) {
+    localStorage.setItem(DASHBOARD_STORAGE_KEY, JSON.stringify({
+        savedAt: new Date().toISOString(),
+        seed: Number(document.querySelector('#seed').value) || 90210,
+        courierCount: Number(courierInput.value),
+        demand: Number(demandInput.value),
+        durationSeconds: SIMULATION_DURATION_SECONDS,
+        results
+    }));
+}
+
+function openDashboard() {
     if (experimentResults.length === 0) {
-        summary.textContent = 'Run a comparison to generate a report.';
-        body.innerHTML = '';
+        statusLine.textContent = 'Run or compare a scenario before opening the dashboard.';
         return;
     }
+    saveDashboardSnapshot(experimentResults);
+    window.location.href = '/dashboard.html';
+}
 
-    const best = [...experimentResults].sort((a, b) => b.delivered - a.delivered)[0];
-    summary.textContent = `${best.algorithm} delivered the most orders in this workload. The report shows trade-offs, not a universal winner.`;
-    body.innerHTML = experimentResults.map(result => `
-        <tr>
-            <td><strong>${result.algorithm}</strong></td>
-            <td class="${resultClass(result, 'delivered', true)}">${result.delivered}</td>
-            <td class="${resultClass(result, 'pending', false)}">${result.pending}</td>
-            <td class="${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s</td>
-            <td class="${resultClass(result, 'serviceLevel', true)}">${result.serviceLevel.toFixed(0)}%</td>
-            <td class="${resultClass(result, 'rating', true)}">${result.rating.toFixed(1)}</td>
-        </tr>
-    `).join('');
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
 }
 
 function resultClass(result, metric, higherIsBetter) {
@@ -322,6 +329,7 @@ function recordResult() {
         algorithmInput.options[algorithmInput.selectedIndex].text
     );
     experimentResults.push(result);
+    saveDashboardSnapshot(experimentResults);
     renderResults();
     statusLine.textContent = 'Run recorded locally. Saving experiment...';
     saveExperimentResults([result])
@@ -329,7 +337,7 @@ function recordResult() {
             statusLine.textContent = `Experiment ${saved.id.slice(0, 8)} saved.`;
         })
         .catch(error => {
-            statusLine.textContent = `Could not save experiment: ${error.message}`;
+            statusLine.textContent = `Run kept locally. Server save unavailable (${error.message}).`;
         });
 }
 
@@ -455,13 +463,14 @@ async function runComparison() {
 
         experimentResults.splice(0, experimentResults.length, ...benchmarkResults);
         renderResults();
+        saveDashboardSnapshot(benchmarkResults);
         statusLine.textContent = 'Comparison complete. Saving experiment...';
         saveExperimentResults(benchmarkResults)
             .then(saved => {
                 statusLine.textContent = `Comparison saved as experiment ${saved.id.slice(0, 8)}.`;
             })
             .catch(error => {
-                statusLine.textContent = `Comparison complete, but save failed: ${error.message}`;
+                statusLine.textContent = `Comparison complete. Results kept locally; server save unavailable (${error.message}).`;
             });
     } finally {
         state = liveState;
@@ -537,11 +546,13 @@ function toggleRunning() {
 function reset() {
     cancelAnimationFrame(animationFrame);
     state = createState();
+    experimentResults.splice(0, experimentResults.length);
     runState.textContent = 'PAUSED';
     runState.style.color = 'var(--coral)';
     playButton.innerHTML = '<span id="playIcon">></span> Start simulation';
-    statusLine.textContent = 'Ready for a new scenario.';
+    statusLine.textContent = 'New scenario ready. Start the simulation or place a request on the map.';
     updateMetrics();
+    renderResults();
     draw();
     animationFrame = requestAnimationFrame(frame);
 }
@@ -572,10 +583,7 @@ document.querySelector('#confirmCompareButton').addEventListener('click', event 
 });
 exportJsonButton.addEventListener('click', () => downloadExperimentResults('json'));
 exportCsvButton.addEventListener('click', () => downloadExperimentResults('csv'));
-reportButton.addEventListener('click', () => {
-    renderReport();
-    document.querySelector('#reportDialog').showModal();
-});
+reportButton.addEventListener('click', openDashboard);
 canvas.addEventListener('click', event => {
     const bounds = canvas.getBoundingClientRect();
     const pointer = {
