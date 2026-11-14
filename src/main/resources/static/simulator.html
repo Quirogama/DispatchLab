@@ -53,10 +53,10 @@
                     </div>
                     <progress id="comparisonProgress" max="100" value="0"></progress>
                     <div class="strategy-progress-list" id="strategyProgressList">
-                        <div class="strategy-progress" data-strategy-progress="first_available"><span>First available (naive)</span><progress max="100" value="0"></progress></div>
-                        <div class="strategy-progress" data-strategy-progress="independent"><span>Independent acceptance</span><progress max="100" value="0"></progress></div>
-                        <div class="strategy-progress" data-strategy-progress="self_selection"><span>Self-selection + bonus</span><progress max="100" value="0"></progress></div>
-                        <div class="strategy-progress" data-strategy-progress="traffic"><span>Traffic-aware dispatch</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="first_available"><span>First available courier</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="independent"><span>Couriers choose individually</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="self_selection"><span>Couriers choose with incentives</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="traffic"><span>Traffic-aware assignment</span><progress max="100" value="0"></progress></div>
                     </div>
                 </div>
             </div>
@@ -71,13 +71,13 @@
                     </ol>
                 </section>
                 <section class="control-section algorithm-section">
-                    <div class="section-title"><span>01</span><h2>Dispatch rule</h2></div>
-                    <label class="select-label" for="algorithm">Assignment algorithm</label>
+                    <div class="section-title"><span>01</span><h2>How orders are assigned</h2></div>
+                    <label class="select-label" for="algorithm">Choose a dispatch strategy</label>
                     <select id="algorithm">
-                        <option value="independent">Independent acceptance</option>
-                        <option value="self_selection">Self-selection + bonus</option>
-                        <option value="first_available">First available (naive)</option>
-                        <option value="traffic">Traffic-aware dispatch</option>
+                        <option value="independent">Couriers choose individually</option>
+                        <option value="self_selection">Couriers choose with incentives</option>
+                        <option value="first_available">First available courier</option>
+                        <option value="traffic">Traffic-aware assignment</option>
                     </select>
                     <p class="algorithm-note" id="algorithmNote">Couriers accept requests individually after a realistic decision delay.</p>
                 </section>
@@ -94,14 +94,14 @@
                 <section class="control-section metrics-section">
                     <div class="section-title"><span>03</span><h2>Telemetry</h2></div>
                     <div class="metrics-grid">
-                        <div class="metric"><span>Delivered</span><strong id="delivered">0</strong></div>
-                        <div class="metric"><span>Waiting</span><strong id="waiting">0</strong></div>
-                        <div class="metric"><span>Avg. distance</span><strong id="distance">0.0</strong></div>
-                        <div class="metric"><span>Service level</span><strong id="serviceLevel">0%</strong></div>
-                        <div class="metric"><span>Avg. wait time</span><strong id="waitTime">0.0s</strong></div>
-                        <div class="metric"><span>Avg. ETA</span><strong id="eta">0s</strong></div>
-                        <div class="metric"><span>Utilization</span><strong id="utilization">0%</strong></div>
-                        <div class="metric"><span>P95 delivery</span><strong id="p95Delivery">0s</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Orders completed by a courier." data-tooltip="Orders completed by a courier.">Delivered <b aria-hidden="true">?</b></span><strong id="delivered">0</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Orders still waiting for a courier." data-tooltip="Orders still waiting for a courier.">Waiting <b aria-hidden="true">?</b></span><strong id="waiting">0</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Average weighted street distance for completed orders." data-tooltip="Average weighted street distance for completed orders.">Avg. distance <b aria-hidden="true">?</b></span><strong id="distance">0.0</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Percentage of completed orders delivered within the target time." data-tooltip="Percentage delivered within the target time.">On-time delivery <b aria-hidden="true">?</b></span><strong id="serviceLevel">0%</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Average time an order spends waiting before pickup." data-tooltip="Average time before pickup.">Avg. wait time <b aria-hidden="true">?</b></span><strong id="waitTime">0.0s</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Estimated time until active couriers reach their pickup locations." data-tooltip="Estimated time until active couriers reach pickup.">Avg. ETA <b aria-hidden="true">?</b></span><strong id="eta">0s</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Percentage of available courier time spent handling orders." data-tooltip="Percentage of courier time spent handling orders.">Fleet busy time <b aria-hidden="true">?</b></span><strong id="utilization">0%</strong></div>
+                        <div class="metric"><span class="metric-label" tabindex="0" title="Delivery time for the slowest 5% of completed orders." data-tooltip="Delivery time for the slowest 5% of orders.">Slowest 5% delivery <b aria-hidden="true">?</b></span><strong id="p95Delivery">0s</strong></div>
                     </div>
                 </section>
 
@@ -112,7 +112,7 @@
                     <div class="export-actions">
                         <button class="secondary-action" id="exportJsonButton" type="button">Export JSON</button>
                         <button class="secondary-action" id="exportCsvButton" type="button">Export CSV</button>
-                        <button class="primary-action dashboard-button" id="reportButton" type="button">Open analysis dashboard</button>
+                        <button class="primary-action dashboard-button" id="reportButton" type="button" hidden>Open analysis dashboard</button>
                     </div>
                     <div class="results-list" id="resultsList"></div>
                 </section>

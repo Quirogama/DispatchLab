@@ -33,7 +33,16 @@ class DispatchLabApplicationTests {
     void healthEndpointReportsServiceStatus() throws Exception {
         mockMvc.perform(get("/api/health"))
             .andExpect(status().isOk())
+            .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+            .andExpect(header().string("X-Frame-Options", "DENY"))
             .andExpect(content().json("{\"status\":\"UP\"}"));
+    }
+
+    @Test
+    void readinessEndpointReportsDatabaseStatus() throws Exception {
+        mockMvc.perform(get("/api/health/ready"))
+            .andExpect(status().isOk())
+            .andExpect(content().json("{\"status\":\"READY\",\"database\":\"UP\"}"));
     }
 
     @Test
@@ -44,7 +53,7 @@ class DispatchLabApplicationTests {
               "durationSeconds": 180,
               "courierCount": 6,
               "results": [{
-                "algorithm": "nearest",
+                "algorithm": "First available courier",
                 "couriers": 6,
                 "delivered": 12,
                 "waiting": 2,
@@ -77,7 +86,11 @@ class DispatchLabApplicationTests {
         mockMvc.perform(get("/api/experiments/{id}", id))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.seed").value(90210))
-            .andExpect(jsonPath("$.results[0].algorithm").value("nearest"));
+            .andExpect(jsonPath("$.results[0].algorithm").value("First available courier"));
+
+        mockMvc.perform(get("/api/experiments").param("limit", "1"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$", hasSize(1)));
     }
 
     @Test
@@ -129,5 +142,42 @@ class DispatchLabApplicationTests {
                     """))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("Request validation failed"));
+    }
+
+    @Test
+    void semanticallyInvalidResultsAreRejected() throws Exception {
+        mockMvc.perform(post("/api/experiments")
+                .contentType("application/json")
+                .content("""
+                    {
+                      "seed": 1,
+                      "durationSeconds": 60,
+                      "courierCount": 2,
+                      "results": [{
+                        "algorithm": "traffic",
+                        "couriers": 4,
+                        "delivered": 3,
+                        "waiting": 2,
+                        "pending": 1,
+                        "assigned": 2,
+                        "averageDistance": 1.0,
+                        "plannedAverageDistance": 1.0,
+                        "averagePickupTime": 1.0,
+                        "p95DeliveryTime": 1.0,
+                        "serviceLevel": 50.0,
+                        "utilization": 50.0,
+                        "rating": 4.0
+                      }]
+                    }
+                    """))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Result courier count must match the experiment courier count"));
+    }
+
+    @Test
+    void experimentListRejectsUnsafeLimits() throws Exception {
+        mockMvc.perform(get("/api/experiments").param("limit", "101"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.message").value("Limit must be between 1 and 100"));
     }
 }

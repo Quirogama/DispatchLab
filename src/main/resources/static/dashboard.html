@@ -45,6 +45,19 @@
                     </div>
                     <div class="quality-chart" id="qualityChart"></div>
                 </article>
+                <article class="dashboard-card outcome-card">
+                    <div class="card-heading">
+                    <div><p class="eyebrow">STRATEGY SHARE</p><h2>Who moved the most orders?</h2></div>
+                    <span class="chart-note">four strategy comparison</span>
+                    </div>
+                    <div class="outcome-content">
+                        <div class="outcome-donut" id="outcomeDonut" role="img" aria-label="Workload outcome chart">
+                        <strong id="outcomePercent">0</strong>
+                        <span>orders delivered</span>
+                        </div>
+                        <div class="outcome-legend" id="outcomeLegend"></div>
+                    </div>
+                </article>
             </section>
 
             <section class="dashboard-card">
@@ -54,7 +67,7 @@
                 </div>
                 <div class="dashboard-table-wrap">
                     <table class="dashboard-table">
-                        <thead><tr><th>Strategy</th><th>Delivered</th><th>Pending</th><th>Avg. distance</th><th>Pickup time</th><th>P95</th><th>SLA</th><th>Fleet</th><th>Rating</th></tr></thead>
+                        <thead><tr><th>Strategy</th><th>Delivered</th><th>Pending</th><th>Avg. distance</th><th>Pickup time</th><th>Slowest 5%</th><th>SLA</th><th>Fleet</th><th>Rating</th></tr></thead>
                         <tbody id="dashboardTableBody"></tbody>
                     </table>
                 </div>

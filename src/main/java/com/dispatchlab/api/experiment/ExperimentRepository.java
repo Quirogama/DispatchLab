@@ -7,7 +7,7 @@ import java.util.UUID;
 public interface ExperimentRepository {
     ExperimentResponse save(ExperimentResponse experiment);
 
-    List<ExperimentResponse> findAll();
+    List<ExperimentResponse> findAll(int limit);
 
     Optional<ExperimentResponse> findById(UUID id);
 }

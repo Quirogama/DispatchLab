@@ -59,6 +59,15 @@ function render(snapshot) {
     const efficient = bestOf(results, 'utilization');
     const maxDelivered = Math.max(...results.map(result => result.delivered), 1);
     const maxPending = Math.max(...results.map(result => result.pending), 1);
+    const outcomeTotal = results.reduce((total, result) => total + result.delivered, 0);
+    const outcomeColors = ['var(--teal)', 'var(--yellow)', 'var(--blue)', 'var(--coral)'];
+    let outcomeStart = 0;
+    const outcomeSegments = results.map((result, index) => {
+        const share = outcomeTotal > 0 ? (result.delivered / outcomeTotal) * 100 : 0;
+        const segment = `${outcomeColors[index % outcomeColors.length]} ${outcomeStart}% ${outcomeStart + share}%`;
+        outcomeStart += share;
+        return { result, segment, share };
+    });
 
     document.querySelector('#dashboardContext').innerHTML = `
         <span><strong>SEED</strong> ${snapshot.seed}</span>
@@ -89,9 +98,22 @@ function render(snapshot) {
         <div class="quality-row">
             <div class="quality-label"><strong>${escapeHtml(labelFor(result.algorithm))}</strong><span>${result.serviceLevel.toFixed(0)}% SLA</span></div>
             <div class="quality-track"><span class="sla-fill" style="width:${result.serviceLevel}%"></span></div>
-            <div class="quality-rating"><span>${result.p95DeliveryTime.toFixed(0)}s P95</span><strong>${result.rating.toFixed(1)}</strong></div>
+            <div class="quality-rating"><span>${result.p95DeliveryTime.toFixed(0)}s slowest 5%</span><strong>${result.rating.toFixed(1)}</strong></div>
         </div>
     `).join('');
+
+    document.querySelector('#outcomeDonut').style.setProperty(
+        '--outcome-gradient',
+        outcomeSegments.map(segment => segment.segment).join(', ')
+    );
+    document.querySelector('#outcomeDonut').setAttribute(
+        'aria-label',
+        `Comparison of delivered orders across ${results.length} dispatch strategies`
+    );
+    document.querySelector('#outcomePercent').textContent = outcomeTotal;
+    document.querySelector('#outcomeLegend').innerHTML = outcomeSegments.map(({ result }, index) => `
+        <div class="outcome-legend-row"><i class="legend-swatch strategy-${index % 4}"></i><span>${escapeHtml(labelFor(result.algorithm))}</span><strong>${result.delivered}</strong></div>
+    `).join('') + `<p>Each segment represents the orders completed by one strategy.</p>`;
 
     document.querySelector('#dashboardTableBody').innerHTML = results.map((result, index) => `
         <tr class="${index === results.indexOf(throughput) ? 'table-highlight' : ''}">

@@ -139,9 +139,13 @@ The simulator can save recorded runs through Spring Boot:
 
 ```text
 POST /api/experiments
-GET  /api/experiments
+GET  /api/experiments?limit=25
 GET  /api/experiments/{id}
 ```
+
+`limit` defaults to 25 and is capped at 100. The API rejects unsupported
+dispatch algorithms, inconsistent courier counts, impossible waiting/pending
+relationships, and invalid metric ranges with structured `400` responses.
 
 Experiment results are persisted in PostgreSQL when the application is run with
 Docker Compose. The JDBC repository is behind an interface so the storage
@@ -151,6 +155,19 @@ isolated in-memory H2 database.
 The Compose setup creates a named PostgreSQL volume, so saved experiments
 survive application restarts. To remove local data intentionally, run
 `docker compose down -v`.
+
+The public demo does not require an account. Experiment submissions are
+validated server-side, result history queries are capped to 100 records, and
+the service exposes separate liveness and database readiness checks:
+
+```text
+GET /api/health
+GET /api/health/ready
+```
+
+The demo is intentionally anonymous for fast portfolio review. A future
+multi-user deployment should add identity, ownership, rate limiting, and
+managed secret storage before exposing experiment history as a shared service.
 
 For local Maven commands on Windows, make sure `JAVA_HOME` points to a JDK 25
 installation. A Java runtime without `javac`, or a Java 8 shim earlier in

@@ -23,10 +23,11 @@ public class InMemoryExperimentRepository implements ExperimentRepository {
     }
 
     @Override
-    public List<ExperimentResponse> findAll() {
+    public List<ExperimentResponse> findAll(int limit) {
         return experiments.values().stream()
             .sorted(Comparator.comparing(ExperimentResponse::createdAt).reversed())
             .map(this::copy)
+            .limit(limit)
             .toList();
     }
 

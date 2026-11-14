@@ -118,3 +118,5 @@ diverge as the simulation proceeds.
    to multiple users.
 2. Add architecture and sequence diagrams, API contract examples, and a
    reproducible experiment protocol to the documentation.
+3. Add database migrations, API rate limiting, and production secret storage
+   before operating the service as a shared public backend.

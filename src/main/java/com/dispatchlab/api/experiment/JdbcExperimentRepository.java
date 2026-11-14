@@ -45,11 +45,12 @@ public class JdbcExperimentRepository implements ExperimentRepository {
     }
 
     @Override
-    public List<ExperimentResponse> findAll() {
+    public List<ExperimentResponse> findAll(int limit) {
         return jdbcTemplate.query(
             "SELECT id, seed, duration_seconds, courier_count, created_at, results_json " +
-                "FROM experiments ORDER BY created_at DESC",
+                "FROM experiments ORDER BY created_at DESC LIMIT ?",
             (resultSet, rowNumber) -> map(resultSet)
+            , limit
         );
     }
 

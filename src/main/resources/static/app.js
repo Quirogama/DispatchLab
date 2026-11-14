@@ -28,10 +28,10 @@ const depots = [{ x: 1, y: 1 }, { x: 13, y: 1 }, { x: 2, y: 4 }, { x: 12, y: 4 }
 const requestColors = ['#e5684c', '#f09b52', '#c94f59'];
 const courierNames = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
 const algorithmNotes = {
-    independent: 'Couriers accept requests individually after a realistic decision delay.',
-    self_selection: 'Couriers choose a priority-weighted request using blended distance and traffic cost, with a shorter decision delay.',
-    first_available: 'Assigns the first idle courier without optimizing distance. Simple, but costly.',
-    traffic: 'Chooses the courier with the fastest route through current traffic.'
+    independent: 'Each courier decides whether to accept a nearby order after a short delay.',
+    self_selection: 'Couriers choose orders using urgency, distance, traffic, and an incentive.',
+    first_available: 'The first available courier gets the next order. Simple, but not always efficient.',
+    traffic: 'The system chooses the courier with the fastest route through current traffic.'
 };
 let state;
 let lastFrame = 0;
@@ -247,6 +247,7 @@ function estimateArrival(courier, target) {
 
 function renderResults() {
     const resultsList = document.querySelector('#resultsList');
+    reportButton.hidden = experimentResults.length === 0;
     resultsList.innerHTML = experimentResults.length === 0
         ? '<p class="empty-results">Run a scenario and record its result.</p>'
         : experimentResults.map(result => `
@@ -254,7 +255,7 @@ function renderResults() {
                 <strong>${escapeHtml(result.algorithm)}</strong>
                 <span class="result-metric ${resultClass(result, 'delivered', true)}">${result.delivered} delivered</span>
                 <span class="result-metric ${resultClass(result, 'pending', false)}">${result.pending} pending</span>
-                <span class="result-metric ${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s P95</span>
+                <span class="result-metric ${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s slowest 5%</span>
                 <span class="result-metric ${resultClass(result, 'serviceLevel', true)}">${result.serviceLevel.toFixed(0)}% SLA</span>
                 <span class="result-metric ${resultClass(result, 'utilization', true)}">${result.utilization.toFixed(0)}% fleet</span>
                 <span class="result-metric ${resultClass(result, 'rating', true)}">${result.rating.toFixed(1)} rating</span>
