@@ -152,6 +152,32 @@ Docker Compose. The JDBC repository is behind an interface so the storage
 boundary can evolve without changing the API or service layer. Tests use an
 isolated in-memory H2 database.
 
+## Distributed experiment jobs
+
+For repeatable benchmark execution outside the browser, submit a job:
+
+```text
+POST /api/v1/simulation-jobs
+Idempotency-Key: benchmark-90210
+```
+
+The API validates the scenario, persists a `QUEUED` job, and publishes it to
+RabbitMQ. Stateless worker replicas claim and execute the job, persist the
+experiment result, and expose the final state:
+
+```text
+GET /api/v1/simulation-jobs/{id}
+```
+
+The job lifecycle is `QUEUED -> RUNNING -> COMPLETED | FAILED`. PostgreSQL
+controls idempotency and worker claims, while RabbitMQ decouples submission
+from CPU-intensive execution. The Docker Compose stack starts two
+`simulation-worker` replicas by default.
+
+See [the architecture guide](docs/ARCHITECTURE.md) and
+[ADR-001](docs/ADR-001-distributed-experiment-workers.md) for the concurrency,
+consistency and trade-off decisions.
+
 The Compose setup creates a named PostgreSQL volume, so saved experiments
 survive application restarts. To remove local data intentionally, run
 `docker compose down -v`.
@@ -169,6 +195,18 @@ The demo is intentionally anonymous for fast portfolio review. A future
 multi-user deployment should add identity, ownership, rate limiting, and
 managed secret storage before exposing experiment history as a shared service.
 
-For local Maven commands on Windows, make sure `JAVA_HOME` points to a JDK 25
-installation. A Java runtime without `javac`, or a Java 8 shim earlier in
-`PATH`, will make Maven fail during test compilation.
+For local Maven commands on Windows, Java 25 is required. The repository
+includes a VS Code JDK configuration and a `.java-version` file. Verify or
+repair the local Java environment with:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify-java.ps1 -SetEnvironment
+```
+
+Close and reopen the terminal after changing `JAVA_HOME`. Then verify Maven:
+
+```powershell
+java -version
+.\mvnw.cmd --version
+.\mvnw.cmd test
+```

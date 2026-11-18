@@ -7,8 +7,10 @@ RUN mvn -q package
 FROM eclipse-temurin:25-jdk
 WORKDIR /app
 COPY --from=build /workspace/target/*.jar app.jar
+COPY scripts ./scripts
+COPY src/main/resources/static ./src/main/resources/static
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y curl \
+    && apt-get install --no-install-recommends -y curl nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system dispatchlab \
     && useradd --system --gid dispatchlab dispatchlab

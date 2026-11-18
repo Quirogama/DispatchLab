@@ -6,6 +6,8 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.util.UUID;
 
@@ -24,6 +26,9 @@ class DispatchLabApplicationTests {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @MockBean
+    private RabbitTemplate rabbitTemplate;
 
     @Test
     void contextLoads() {
@@ -179,5 +184,51 @@ class DispatchLabApplicationTests {
         mockMvc.perform(get("/api/experiments").param("limit", "101"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.message").value("Limit must be between 1 and 100"));
+    }
+
+    @Test
+    void simulationJobsAreAcceptedIdempotently() throws Exception {
+        var payload = """
+            {
+              "seed": 90210,
+              "durationSeconds": 180,
+              "courierCount": 6,
+              "grid": {"columns": 15, "rows": 6},
+              "depots": [
+                {"x": 1, "y": 1},
+                {"x": 13, "y": 1},
+                {"x": 2, "y": 4},
+                {"x": 12, "y": 4}
+              ],
+              "demandDelay": 34,
+              "algorithms": ["independent", "traffic", "self_selection"],
+              "stepMilliseconds": 2000
+            }
+            """;
+
+        var result = mockMvc.perform(post("/api/v1/simulation-jobs")
+                .header("Idempotency-Key", "portfolio-test-1")
+                .contentType("application/json")
+                .content(payload))
+            .andExpect(status().isAccepted())
+            .andExpect(header().exists("Location"))
+            .andExpect(jsonPath("$.status").value("QUEUED"))
+            .andReturn();
+
+        var id = com.jayway.jsonpath.JsonPath.read(
+            result.getResponse().getContentAsString(),
+            "$.id"
+        ).toString();
+
+        mockMvc.perform(post("/api/v1/simulation-jobs")
+                .header("Idempotency-Key", "portfolio-test-1")
+                .contentType("application/json")
+                .content(payload))
+            .andExpect(status().isAccepted())
+            .andExpect(jsonPath("$.id").value(id));
+
+        mockMvc.perform(get("/api/v1/simulation-jobs/{id}", UUID.fromString(id)))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("QUEUED"));
     }
 }

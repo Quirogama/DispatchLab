@@ -1,5 +1,6 @@
 import { nearestNode, getEffectiveTraffic, getEdge } from './dispatch-logic.js';
 import { calculateMetrics, summarizeRun } from './metrics.js';
+import { t } from './i18n.js';
 import {
     addSimulationRequest,
     advanceSimulation,
@@ -42,6 +43,10 @@ let benchmarkMode = false;
 let comparisonRunning = false;
 let comparisonPaused = false;
 
+function themeColor(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function createState() {
     const courierCount = Number(courierInput.value);
     const seed = Number(document.querySelector('#seed').value) || 90210;
@@ -60,7 +65,7 @@ function demandDelay() { return [56, 34, 17][Number(demandInput.value) - 1]; }
 
 function addRequest(station, destination) {
     addSimulationRequest(state, station, destination);
-    if (!benchmarkMode) statusLine.textContent = 'New delivery request added to the queue.';
+    if (!benchmarkMode) statusLine.textContent = t('New delivery request added to the queue.');
     if (!benchmarkMode) draw();
 }
 
@@ -90,7 +95,7 @@ function edgeTrafficColor(congestion) {
 }
 
 function drawStreetNetwork(width, height) {
-    context.fillStyle = '#edf2ee';
+    context.fillStyle = themeColor('--map-surface');
     context.fillRect(0, 0, width, height);
 
     const seen = new Set();
@@ -116,8 +121,8 @@ function drawStreetNetwork(width, height) {
     });
 
     context.globalAlpha = 1;
-    context.fillStyle = '#edf3f1';
-    context.strokeStyle = '#7ea09b';
+    context.fillStyle = themeColor('--map-node');
+    context.strokeStyle = themeColor('--map-border');
     context.lineWidth = 1.1;
     state.graph.nodes.forEach(node => {
         const pointOnMap = point(node, width, height);
@@ -145,7 +150,7 @@ function draw() {
         context.lineTo(depotPoint.x - 12, depotPoint.y);
         context.closePath();
         context.fill();
-        context.fillStyle = '#fffdf8';
+        context.fillStyle = themeColor('--map-mark');
         context.beginPath();
         context.moveTo(depotPoint.x, depotPoint.y - 4);
         context.lineTo(depotPoint.x + 4, depotPoint.y);
@@ -174,7 +179,7 @@ function draw() {
         context.arc(pickup.x, pickup.y, 10, 0, Math.PI * 2);
         context.fill();
 
-        context.fillStyle = '#fffdf8';
+        context.fillStyle = themeColor('--map-mark');
         context.beginPath();
         context.moveTo(destination.x, destination.y - 8);
         context.lineTo(destination.x + 8, destination.y + 6);
@@ -249,13 +254,13 @@ function renderResults() {
     const resultsList = document.querySelector('#resultsList');
     reportButton.hidden = experimentResults.length === 0;
     resultsList.innerHTML = experimentResults.length === 0
-        ? '<p class="empty-results">Run a scenario and record its result.</p>'
+        ? `<p class="empty-results">${t('Run a scenario and record its result.')}</p>`
         : experimentResults.map(result => `
             <div class="result-row">
                 <strong>${escapeHtml(result.algorithm)}</strong>
-                <span class="result-metric ${resultClass(result, 'delivered', true)}">${result.delivered} delivered</span>
-                <span class="result-metric ${resultClass(result, 'pending', false)}">${result.pending} pending</span>
-                <span class="result-metric ${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s slowest 5%</span>
+                <span class="result-metric ${resultClass(result, 'delivered', true)}">${result.delivered} ${t('Delivered').toLowerCase()}</span>
+                <span class="result-metric ${resultClass(result, 'pending', false)}">${result.pending} ${t('Pending').toLowerCase()}</span>
+                <span class="result-metric ${resultClass(result, 'p95DeliveryTime', false)}">${result.p95DeliveryTime.toFixed(0)}s ${t('Slowest 5% delivery').toLowerCase()}</span>
                 <span class="result-metric ${resultClass(result, 'serviceLevel', true)}">${result.serviceLevel.toFixed(0)}% SLA</span>
                 <span class="result-metric ${resultClass(result, 'utilization', true)}">${result.utilization.toFixed(0)}% fleet</span>
                 <span class="result-metric ${resultClass(result, 'rating', true)}">${result.rating.toFixed(1)} rating</span>
@@ -276,7 +281,7 @@ function saveDashboardSnapshot(results) {
 
 function openDashboard() {
     if (experimentResults.length === 0) {
-        statusLine.textContent = 'Run or compare a scenario before opening the dashboard.';
+        statusLine.textContent = t('Run or compare a scenario before opening the dashboard.');
         return;
     }
     saveDashboardSnapshot(experimentResults);
@@ -332,13 +337,13 @@ function recordResult() {
     experimentResults.push(result);
     saveDashboardSnapshot(experimentResults);
     renderResults();
-    statusLine.textContent = 'Run recorded locally. Saving experiment...';
+    statusLine.textContent = t('Run recorded locally. Saving experiment...');
     saveExperimentResults([result])
         .then(saved => {
-            statusLine.textContent = `Experiment ${saved.id.slice(0, 8)} saved.`;
+            statusLine.textContent = `${t('Experiment')} ${saved.id.slice(0, 8)} ${t('saved.')}`;
         })
         .catch(error => {
-            statusLine.textContent = `Run kept locally. Server save unavailable (${error.message}).`;
+            statusLine.textContent = `${t('Run kept locally. Server save unavailable')} (${error.message}).`;
         });
 }
 
@@ -412,7 +417,7 @@ async function runComparison() {
         document.querySelector('#seed')
     ];
     compareButton.disabled = true;
-    compareButton.textContent = 'Comparing...';
+    compareButton.textContent = t('Comparing...');
     playButton.innerHTML = '<span id="playIcon">||</span> Pause comparison';
     comparisonControls.forEach(control => { control.disabled = true; });
     liveState.running = false;
@@ -432,7 +437,7 @@ async function runComparison() {
                 demandDelay: demandDelay()
             });
 
-            statusLine.textContent = `Comparing ${label} (${index + 1}/${algorithms.length})...`;
+            statusLine.textContent = `${t('Comparing')} ${label} (${index + 1}/${algorithms.length})...`;
             setComparisonProgress(index, 0);
             for (let elapsed = 0; elapsed < durationSeconds * 1000; elapsed += stepMilliseconds * replayStepsPerTick) {
                 await waitForComparisonResume();
@@ -465,13 +470,13 @@ async function runComparison() {
         experimentResults.splice(0, experimentResults.length, ...benchmarkResults);
         renderResults();
         saveDashboardSnapshot(benchmarkResults);
-        statusLine.textContent = 'Comparison complete. Saving experiment...';
+        statusLine.textContent = t('Comparison complete. Saving experiment...');
         saveExperimentResults(benchmarkResults)
             .then(saved => {
-                statusLine.textContent = `Comparison saved as experiment ${saved.id.slice(0, 8)}.`;
+                statusLine.textContent = `${t('Comparison saved as experiment')} ${saved.id.slice(0, 8)}.`;
             })
             .catch(error => {
-                statusLine.textContent = `Comparison complete. Results kept locally; server save unavailable (${error.message}).`;
+                statusLine.textContent = `${t('Comparison complete. Results kept locally; server save unavailable')} (${error.message}).`;
             });
     } finally {
         state = liveState;
@@ -481,7 +486,7 @@ async function runComparison() {
         comparisonRunning = false;
         comparisonPaused = false;
         compareButton.disabled = false;
-        compareButton.textContent = 'Compare strategies';
+        compareButton.textContent = t('Compare strategies');
         comparisonControls.forEach(control => { control.disabled = false; });
         playButton.innerHTML = liveRunning
             ? '<span id="playIcon">||</span> Pause simulation'
@@ -494,7 +499,7 @@ async function runComparison() {
 
 function downloadExperimentResults(format) {
     if (experimentResults.length === 0) {
-        statusLine.textContent = 'Run or record an experiment before exporting results.';
+        statusLine.textContent = t('Run or record an experiment before exporting results.');
         return;
     }
 
@@ -516,7 +521,7 @@ function downloadExperimentResults(format) {
     link.download = `dispatchlab-experiment.${format}`;
     link.click();
     URL.revokeObjectURL(link.href);
-    statusLine.textContent = `Experiment exported as ${format.toUpperCase()}.`;
+    statusLine.textContent = `${t('Experiment exported as')} ${format.toUpperCase()}.`;
 }
 
 function frame(timestamp) {
@@ -533,7 +538,7 @@ function toggleRunning() {
         playButton.innerHTML = comparisonPaused
             ? '<span id="playIcon">></span> Resume comparison'
             : '<span id="playIcon">||</span> Pause comparison';
-        statusLine.textContent = comparisonPaused ? 'Comparison paused.' : 'Comparison resumed.';
+        statusLine.textContent = comparisonPaused ? t('Comparison paused.') : t('Comparison resumed.');
         return;
     }
 
@@ -541,7 +546,7 @@ function toggleRunning() {
     playButton.innerHTML = state.running ? '<span id="playIcon">||</span> Pause simulation' : '<span id="playIcon">></span> Start simulation';
     runState.textContent = state.running ? 'RUNNING' : 'PAUSED';
     runState.style.color = state.running ? 'var(--teal)' : 'var(--coral)';
-    statusLine.textContent = state.running ? 'Dispatching requests in real time.' : 'Simulation paused.';
+    statusLine.textContent = state.running ? t('Dispatching requests in real time.') : t('Simulation paused.');
 }
 
 function reset() {
@@ -551,7 +556,7 @@ function reset() {
     runState.textContent = 'PAUSED';
     runState.style.color = 'var(--coral)';
     playButton.innerHTML = '<span id="playIcon">></span> Start simulation';
-    statusLine.textContent = 'New scenario ready. Start the simulation or place a request on the map.';
+    statusLine.textContent = t('New scenario ready. Start the simulation or place a request on the map.');
     updateMetrics();
     renderResults();
     draw();
@@ -559,16 +564,16 @@ function reset() {
 }
 
 algorithmInput.addEventListener('change', () => {
-    algorithmNote.textContent = algorithmNotes[algorithmInput.value];
+    algorithmNote.textContent = t(algorithmNotes[algorithmInput.value]);
     state.algorithm = algorithmInput.value;
     draw();
 });
 demandInput.addEventListener('input', () => {
-    document.querySelector('#demandValue').textContent = ['Low', 'Medium', 'High'][Number(demandInput.value) - 1];
+    document.querySelector('#demandValue').textContent = t(['Low', 'Medium', 'High'][Number(demandInput.value) - 1]);
 });
 document.querySelector('#seed').addEventListener('change', reset);
 courierInput.addEventListener('input', () => {
-    document.querySelector('#courierValue').textContent = `${courierInput.value} riders`;
+    document.querySelector('#courierValue').textContent = `${courierInput.value} ${t('riders')}`;
     reset();
 });
 playButton.addEventListener('click', toggleRunning);
@@ -616,4 +621,11 @@ state = createState();
 resizeCanvas();
 updateMetrics();
 renderResults();
+document.addEventListener('dispatchlab:language', () => {
+    algorithmNote.textContent = t(algorithmNotes[algorithmInput.value]);
+    document.querySelector('#demandValue').textContent = t(['Low', 'Medium', 'High'][Number(demandInput.value) - 1]);
+    document.querySelector('#courierValue').textContent = `${courierInput.value} ${t('riders')}`;
+    renderResults();
+});
+document.addEventListener('dispatchlab:theme', draw);
 animationFrame = requestAnimationFrame(frame);

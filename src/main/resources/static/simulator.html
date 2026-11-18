@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DispatchLab | City Simulator</title>
-    <link rel="stylesheet" href="/styles.css?v=20261112-5">
+    <link rel="stylesheet" href="/styles.css?v=20261118-4">
 </head>
 <body class="simulator-page">
     <main class="shell">
@@ -14,7 +14,13 @@
                 <span class="context-divider">/</span>
                 <span class="context-label">FIELD STUDY 01 / LIVE DISPATCH</span>
             </div>
-            <div class="run-state" id="runState">PAUSED</div>
+            <div class="topbar-actions">
+                <div class="ui-preferences" aria-label="Interface preferences">
+                    <span>LANG</span><button type="button" data-language="en">EN</button><button type="button" data-language="es">ES</button>
+                    <span>THEME</span><button type="button" data-theme="dark">DARK</button><button type="button" data-theme="light">LIGHT</button>
+                </div>
+                <div class="run-state" id="runState">PAUSED</div>
+            </div>
         </header>
 
         <section class="workspace">
@@ -135,6 +141,6 @@
             </div>
         </form>
     </dialog>
-    <script type="module" src="/app.js?v=20261112-4"></script>
+    <script type="module" src="/app.js?v=20261118-1"></script>
 </body>
 </html>

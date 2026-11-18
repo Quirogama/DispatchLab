@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 const STORAGE_KEY = 'dispatchlab.latest-experiment';
 const labels = {
     first_available: 'First available',
@@ -18,11 +20,11 @@ function readSnapshot() {
 
 function labelFor(algorithm) {
     const key = String(algorithm).toLowerCase();
-    if (key.includes('self-selection')) return labels.self_selection;
-    if (key.includes('independent')) return labels.independent;
-    if (key.includes('traffic')) return labels.traffic;
-    if (key.includes('first available')) return labels.first_available;
-    return labels[algorithm] || algorithm;
+    if (key.includes('self-selection')) return t(labels.self_selection);
+    if (key.includes('independent')) return t(labels.independent);
+    if (key.includes('traffic')) return t(labels.traffic);
+    if (key.includes('first available')) return t(labels.first_available);
+    return t(labels[algorithm] || algorithm);
 }
 
 function isStrategy(result, strategy) {
@@ -71,16 +73,16 @@ function render(snapshot) {
 
     document.querySelector('#dashboardContext').innerHTML = `
         <span><strong>SEED</strong> ${snapshot.seed}</span>
-        <span><strong>FLEET</strong> ${snapshot.courierCount} couriers</span>
-        <span><strong>RUN</strong> ${Math.round(snapshot.durationSeconds / 60)} minutes</span>
-        <span><strong>DEMAND</strong> ${['', 'Low', 'Medium', 'High'][snapshot.demand] || 'Custom'}</span>
+        <span><strong>FLEET</strong> ${snapshot.courierCount} ${t('riders')}</span>
+        <span><strong>RUN</strong> ${Math.round(snapshot.durationSeconds / 60)} ${t('minutes')}</span>
+        <span><strong>DEMAND</strong> ${t(['', 'Low', 'Medium', 'High'][snapshot.demand] || 'Custom')}</span>
         <span><strong>SAVED</strong> ${new Date(snapshot.savedAt).toLocaleString()}</span>
     `;
     document.querySelector('#dashboardKpis').innerHTML = [
-        ['Top throughput', throughput.delivered, labelFor(throughput.algorithm), 'teal'],
-        ['Best service level', `${service.serviceLevel.toFixed(0)}%`, labelFor(service.algorithm), 'yellow'],
-        ['Fastest P95', `${fastest.p95DeliveryTime.toFixed(0)}s`, labelFor(fastest.algorithm), 'blue'],
-        ['Best fleet use', `${efficient.utilization.toFixed(0)}%`, labelFor(efficient.algorithm), 'coral']
+        [t('Top throughput'), throughput.delivered, labelFor(throughput.algorithm), 'teal'],
+        [t('Best service level'), `${service.serviceLevel.toFixed(0)}%`, labelFor(service.algorithm), 'yellow'],
+        [t('Fastest P95'), `${fastest.p95DeliveryTime.toFixed(0)}s`, labelFor(fastest.algorithm), 'blue'],
+        [t('Best fleet use'), `${efficient.utilization.toFixed(0)}%`, labelFor(efficient.algorithm), 'coral']
     ].map(([title, value, note, tone]) => `
         <article class="dashboard-kpi dashboard-kpi-${tone}">
             <span>${title}</span><strong>${value}</strong><small>${escapeHtml(note)}</small>
@@ -89,7 +91,7 @@ function render(snapshot) {
 
     document.querySelector('#throughputChart').innerHTML = results.map((result, index) => `
         <div class="bar-row">
-            <div class="bar-label"><strong>${escapeHtml(labelFor(result.algorithm))}</strong><span>${result.delivered} delivered</span></div>
+            <div class="bar-label"><strong>${escapeHtml(labelFor(result.algorithm))}</strong><span>${result.delivered} ${t('delivered lowercase')}</span></div>
             <div class="bar-track"><span class="bar-fill bar-fill-${tones[index % tones.length]}" style="width:${(result.delivered / maxDelivered) * 100}%"></span></div>
         </div>
     `).join('');
@@ -108,12 +110,12 @@ function render(snapshot) {
     );
     document.querySelector('#outcomeDonut').setAttribute(
         'aria-label',
-        `Comparison of delivered orders across ${results.length} dispatch strategies`
+        `${t('Comparison of delivered orders across')} ${results.length} ${t('dispatch strategies')}`
     );
     document.querySelector('#outcomePercent').textContent = outcomeTotal;
     document.querySelector('#outcomeLegend').innerHTML = outcomeSegments.map(({ result }, index) => `
         <div class="outcome-legend-row"><i class="legend-swatch strategy-${index % 4}"></i><span>${escapeHtml(labelFor(result.algorithm))}</span><strong>${result.delivered}</strong></div>
-    `).join('') + `<p>Each segment represents the orders completed by one strategy.</p>`;
+    `).join('') + `<p>${t('Each segment represents the orders completed by one strategy.')}</p>`;
 
     document.querySelector('#dashboardTableBody').innerHTML = results.map((result, index) => `
         <tr class="${index === results.indexOf(throughput) ? 'table-highlight' : ''}">
@@ -129,13 +131,13 @@ function render(snapshot) {
     const selection = results.find(result => isStrategy(result, 'self_selection'));
     const traffic = results.find(result => isStrategy(result, 'traffic'));
     const insights = [
-        `${labelFor(throughput.algorithm)} leads throughput with ${throughput.delivered} completed orders.`,
+        `${labelFor(throughput.algorithm)} ${t('leads throughput with')} ${throughput.delivered} ${t('completed orders')}.`,
         selection && independent
-            ? `Self-selection delivers ${selection.delivered - independent.delivered >= 0 ? '+' : ''}${selection.delivered - independent.delivered} orders versus independent acceptance.`
-            : 'The selected run does not include both autonomous strategies.',
+            ? `${t('Self-selection delivers')} ${selection.delivered - independent.delivered >= 0 ? '+' : ''}${selection.delivered - independent.delivered} ${t('orders versus independent acceptance')}.`
+            : t('The selected run does not include both autonomous strategies.'),
         traffic && selection
-            ? `Traffic-aware dispatch completes ${traffic.delivered - selection.delivered} more orders than self-selection, trading away fleet utilization.`
-            : `The strongest service-level result is ${service.serviceLevel.toFixed(0)}% from ${labelFor(service.algorithm)}.`
+            ? `${t('Traffic-aware dispatch completes')} ${traffic.delivered - selection.delivered} ${t('more orders than self-selection, trading away fleet utilization')}.`
+            : `${t('The strongest service-level result is')} ${service.serviceLevel.toFixed(0)}% ${t('from')} ${labelFor(service.algorithm)}.`
     ];
     document.querySelector('#insightList').innerHTML = insights.map(text => `<p><span>+</span>${escapeHtml(text)}</p>`).join('');
     empty.hidden = true;
@@ -154,3 +156,4 @@ document.querySelector('#exportDashboardButton').addEventListener('click', () =>
 });
 
 render(readSnapshot());
+document.addEventListener('dispatchlab:language', () => render(readSnapshot()));

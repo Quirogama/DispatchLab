@@ -1,4 +1,12 @@
 <# : batch portion
+@REM Prefer an installed Java 25 JDK over a stale machine-wide JAVA_HOME or PATH.
+@SET "__MVNW_JAVA_25_HOME="
+@FOR /D %%D IN ("%ProgramFiles%\Eclipse Adoptium\jdk-25*") DO @IF EXIST "%%D\bin\java.exe" @SET "__MVNW_JAVA_25_HOME=%%D"
+@IF DEFINED __MVNW_JAVA_25_HOME (
+    @SET "JAVA_HOME=%__MVNW_JAVA_25_HOME%"
+    @SET "PATH=%JAVA_HOME%\bin;%PATH%"
+)
+@SET "__MVNW_JAVA_25_HOME="
 @REM ----------------------------------------------------------------------------
 @REM Licensed to the Apache Software Foundation (ASF) under one
 @REM or more contributor license agreements.  See the NOTICE file

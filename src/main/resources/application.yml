@@ -8,6 +8,27 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/dispatchlab}
     username: ${DB_USERNAME:dispatchlab}
     password: ${DB_PASSWORD:}
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 
 server:
   port: 8080
+
+dispatchlab:
+  worker:
+    enabled: ${DISPATCHLAB_WORKER_ENABLED:false}
+  simulation:
+    timeout-seconds: ${DISPATCHLAB_SIMULATION_TIMEOUT_SECONDS:300}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
