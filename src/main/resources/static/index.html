@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DispatchLab | Urban Dispatch Lab</title>
-    <link rel="stylesheet" href="/styles.css?v=20261118-4">
+    <link rel="stylesheet" href="/styles.css?v=20261118-8">
 </head>
 <body class="overview-page">
     <main class="overview-shell">
@@ -23,7 +23,8 @@
         <section class="overview-hero">
             <div class="hero-heading">
                 <p class="eyebrow">DISPATCHLAB / URBAN MOBILITY</p>
-                <h1>Make every dispatch<br><em>count.</em></h1>
+                <h1><span data-i18n="Too many">Too many</span> <em data-i18n="orders.">orders.</em><br><span data-i18n="Too few">Too few</span> <em data-i18n="couriers.">couriers.</em></h1>
+                <h2 class="hero-question" data-i18n="What should the city decide first?">What should the city decide first?</h2>
                 <p class="hero-intro">Explore the dispatch logic behind city apps like Uber and DiDi. See how a changing city affects the way people, orders, and couriers move.</p>
             </div>
             <div class="hero-stage">
@@ -50,30 +51,70 @@
             </div>
         </section>
         <section class="story-band" aria-label="The dispatch problem">
-            <div class="story-label"><span class="signal-mark"></span><span>THE PROBLEM</span><span class="story-index">01 / 03</span></div>
-            <p class="story-copy">A request arrives. The best driver is not always the closest one.</p>
-            <div class="story-log">
-                <div><span>09:42:18</span><strong>ORDER 024</strong><em>urgent request enters the network</em></div>
-                <div><span>09:42:19</span><strong>4 OPTIONS</strong><em>each one leaves a different trace</em></div>
+            <div class="problem-copy">
+                <p class="eyebrow problem-kicker" data-i18n="THE PROBLEM">THE PROBLEM</p>
+                <h2 data-i18n="The closest courier is not always the fastest.">The closest courier is not always the fastest.</h2>
+                <p data-i18n="A delivery app looks simple when you open it, but every new order creates choices: who should go, which route to take and what happens to everyone still waiting.">A delivery app looks simple when you open it, but every new order creates choices: who should go, which route to take and what happens to everyone still waiting.</p>
             </div>
-            <div class="decision-map" aria-label="A request being evaluated against four couriers">
-                <span class="decision-route route-one"></span><span class="decision-route route-two"></span><span class="decision-route route-three"></span>
-                <i class="decision-node node-start"></i><i class="decision-node node-courier-one"></i><i class="decision-node node-courier-two"></i><i class="decision-node node-courier-three"></i>
-                <b class="decision-order">ORDER</b><b class="decision-caption">distance / traffic / urgency</b>
+            <div class="problem-flow" aria-label="How one dispatch decision affects a city">
+                <article>
+                    <span>01</span>
+                    <div>
+                        <strong data-i18n="A request arrives">A request arrives</strong>
+                        <p data-i18n="The city has an address to visit, limited couriers and different levels of urgency.">The city has an address to visit, limited couriers and different levels of urgency.</p>
+                    </div>
+                </article>
+                <article>
+                    <span>02</span>
+                    <div>
+                        <strong data-i18n="The system chooses">The system chooses</strong>
+                        <p data-i18n="It weighs distance, traffic, workload and available time—not only who is nearest.">It weighs distance, traffic, workload and available time—not only who is nearest.</p>
+                    </div>
+                </article>
+                <article>
+                    <span>03</span>
+                    <div>
+                        <strong data-i18n="Everyone feels the result">Everyone feels the result</strong>
+                        <p data-i18n="The decision changes waiting time, fleet capacity and whether future orders can be served quickly.">The decision changes waiting time, fleet capacity and whether future orders can be served quickly.</p>
+                    </div>
+                </article>
             </div>
         </section>
         <section class="overview-explanation" id="about">
             <div class="explanation-lead">
                 <p class="eyebrow">THE EXPERIMENT</p>
-                <h2>One scenario.<br>Different rules.<br><em>Measurable outcomes.</em></h2>
+                <h2 data-i18n="One city.">One city.<br><span data-i18n="Four ways to move it.">Four ways to move it.</span></h2>
             </div>
             <div class="explanation-body">
-                <p>DispatchLab makes the hidden logic behind apps like Uber and DiDi visible. Set the conditions, run a strategy, and compare the result.</p>
-                <div class="chain-visual" aria-hidden="true"><span>request</span><i></i><span>assignment</span><i></i><span>traffic</span><i></i><span>outcome</span></div>
-                <div class="method-grid">
-                <div><span>01</span><strong>Set demand</strong><small>Choose how many orders enter the city.</small></div>
-                <div><span>02</span><strong>Run a rule</strong><small>Watch four strategies assign couriers.</small></div>
-                <div><span>03</span><strong>Compare results</strong><small>See which trade-offs keep the city moving.</small></div>
+                <p data-i18n="DispatchLab gives the same city the same deliveries and tests a different dispatch rule each time. That makes it easier to see who delivers more, waits less and uses the fleet better.">DispatchLab gives the same city the same deliveries and tests a different dispatch rule each time. That makes it easier to see who delivers more, waits less and uses the fleet better.</p>
+                <div class="dispatch-flow" aria-label="From a request to a city-wide result">
+                    <article>
+                        <span class="flow-number">01</span>
+                        <div class="flow-symbol flow-request" aria-hidden="true"></div>
+                        <strong data-i18n="Request">Request</strong>
+                        <small data-i18n="An order enters the city.">An order enters the city.</small>
+                    </article>
+                    <i aria-hidden="true"></i>
+                    <article>
+                        <span class="flow-number">02</span>
+                        <div class="flow-symbol flow-assignment" aria-hidden="true"></div>
+                        <strong data-i18n="Assignment">Assignment</strong>
+                        <small data-i18n="A courier is chosen.">A courier is chosen.</small>
+                    </article>
+                    <i aria-hidden="true"></i>
+                    <article>
+                        <span class="flow-number">03</span>
+                        <div class="flow-symbol flow-traffic" aria-hidden="true"></div>
+                        <strong data-i18n="Traffic">Traffic</strong>
+                        <small data-i18n="The route is tested.">The route is tested.</small>
+                    </article>
+                    <i aria-hidden="true"></i>
+                    <article>
+                        <span class="flow-number">04</span>
+                        <div class="flow-symbol flow-outcome" aria-hidden="true"></div>
+                        <strong data-i18n="Outcome">Outcome</strong>
+                        <small data-i18n="The city feels the result.">The city feels the result.</small>
+                    </article>
                 </div>
             </div>
         </section>
@@ -108,6 +149,6 @@
         </section>
         <footer class="overview-footer"><span>Interactive dispatch simulation</span><span>Built for curious operators <b>↗</b></span></footer>
     </main>
-    <script type="module" src="/i18n.js?v=20261118-1"></script>
+    <script type="module" src="/i18n.js?v=20261118-4"></script>
 </body>
 </html>
