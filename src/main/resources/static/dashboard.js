@@ -1,8 +1,8 @@
-import { t } from './i18n.js';
+import { t } from './i18n.js?v=20261125-1';
 
 const STORAGE_KEY = 'dispatchlab.latest-experiment';
 const labels = {
-    first_available: 'First available',
+    first_available: 'Naive: first available courier',
     independent: 'Independent acceptance',
     self_selection: 'Self-selection + bonus',
     traffic: 'Traffic-aware dispatch',
@@ -54,11 +54,19 @@ function render(snapshot) {
         return;
     }
 
-    const results = snapshot.results;
+    const results = snapshot.results.map(result => {
+        const courierHours = (result.couriers ?? snapshot.courierCount) *
+            snapshot.durationSeconds / 3600;
+        return {
+            ...result,
+            fleetThroughput: result.fleetThroughput ??
+                (courierHours > 0 ? result.delivered / courierHours : 0)
+        };
+    });
     const throughput = bestOf(results, 'delivered');
     const service = bestOf(results, 'serviceLevel');
     const fastest = bestOf(results, 'p95DeliveryTime', false);
-    const efficient = bestOf(results, 'utilization');
+    const efficient = bestOf(results, 'fleetThroughput');
     const maxDelivered = Math.max(...results.map(result => result.delivered), 1);
     const maxPending = Math.max(...results.map(result => result.pending), 1);
     const outcomeTotal = results.reduce((total, result) => total + result.delivered, 0);
@@ -82,7 +90,7 @@ function render(snapshot) {
         [t('Top throughput'), throughput.delivered, labelFor(throughput.algorithm), 'teal'],
         [t('Best service level'), `${service.serviceLevel.toFixed(0)}%`, labelFor(service.algorithm), 'yellow'],
         [t('Fastest P95'), `${fastest.p95DeliveryTime.toFixed(0)}s`, labelFor(fastest.algorithm), 'blue'],
-        [t('Best fleet use'), `${efficient.utilization.toFixed(0)}%`, labelFor(efficient.algorithm), 'coral']
+        [t('Best fleet throughput'), `${efficient.fleetThroughput.toFixed(1)} ${t('orders/rider-hour')}`, labelFor(efficient.algorithm), 'coral']
     ].map(([title, value, note, tone]) => `
         <article class="dashboard-kpi dashboard-kpi-${tone}">
             <span>${title}</span><strong>${value}</strong><small>${escapeHtml(note)}</small>
@@ -123,7 +131,7 @@ function render(snapshot) {
             <td>${result.delivered}</td><td>${result.pending}</td>
             <td>${result.averageDistance.toFixed(1)}</td><td>${result.averagePickupTime.toFixed(0)}s</td>
             <td>${result.p95DeliveryTime.toFixed(0)}s</td><td>${result.serviceLevel.toFixed(0)}%</td>
-            <td>${result.utilization.toFixed(0)}%</td><td>${result.rating.toFixed(1)}</td>
+            <td>${result.fleetThroughput.toFixed(1)} ${t('orders/rider-hour')}</td><td>${result.rating.toFixed(1)}</td>
         </tr>
     `).join('');
 
@@ -136,7 +144,7 @@ function render(snapshot) {
             ? `${t('Self-selection delivers')} ${selection.delivered - independent.delivered >= 0 ? '+' : ''}${selection.delivered - independent.delivered} ${t('orders versus independent acceptance')}.`
             : t('The selected run does not include both autonomous strategies.'),
         traffic && selection
-            ? `${t('Traffic-aware dispatch completes')} ${traffic.delivered - selection.delivered} ${t('more orders than self-selection, trading away fleet utilization')}.`
+            ? `${t('Traffic-aware dispatch completes')} ${traffic.delivered - selection.delivered} ${t('more orders than self-selection while keeping fleet utilization lower')}.`
             : `${t('The strongest service-level result is')} ${service.serviceLevel.toFixed(0)}% ${t('from')} ${labelFor(service.algorithm)}.`
     ];
     document.querySelector('#insightList').innerHTML = insights.map(text => `<p><span>+</span>${escapeHtml(text)}</p>`).join('');

@@ -52,6 +52,12 @@ const translations = {
         'Reset scenario': 'Reset scenario',
         'Start simulation': 'Start simulation',
         'Pause simulation': 'Pause simulation',
+        'Resume simulation': 'Resume simulation',
+        'Running selected strategy.': 'Running selected strategy.',
+        'Simulation resumed.': 'Simulation resumed.',
+        'Simulation complete. Saving experiment...': 'Simulation complete. Saving experiment...',
+        'Simulation failed': 'Simulation failed',
+        'Single run': 'Single run',
         'Compare strategies': 'Compare strategies',
         'depot': 'depot',
         'courier': 'courier',
@@ -71,6 +77,7 @@ const translations = {
         'Couriers choose individually': 'Couriers choose individually',
         'Couriers choose with incentives': 'Couriers choose with incentives',
         'First available courier': 'First available courier',
+        'Naive: first available courier': 'Naive: first available courier',
         'Traffic-aware assignment': 'Traffic-aware assignment',
         'Scenario': 'Scenario',
         'Scenario seed': 'Scenario seed',
@@ -84,6 +91,7 @@ const translations = {
         'Avg. wait time': 'Avg. wait time',
         'Avg. ETA': 'Avg. ETA',
         'Fleet busy time': 'Fleet busy time',
+        'Fleet throughput': 'Fleet throughput',
         'Slowest 5% delivery': 'Slowest 5% delivery',
         'Run comparison': 'Run comparison',
         'Same scenario, different dispatch rules.': 'Same scenario, different dispatch rules.',
@@ -139,11 +147,11 @@ const translations = {
         ,'Comparison saved as experiment': 'Comparison saved as experiment'
         ,'Comparison complete. Results kept locally; server save unavailable': 'Comparison complete. Results kept locally; server save unavailable'
         ,'Experiment exported as': 'Experiment exported as'
-        ,'Each courier decides whether to accept a nearby order after a short delay.': 'Each courier decides whether to accept a nearby order after a short delay.'
-        ,'Couriers choose orders using urgency, distance, traffic, and an incentive.': 'Couriers choose orders using urgency, distance, traffic, and an incentive.'
-        ,'The first available courier gets the next order. Simple, but not always efficient.': 'The first available courier gets the next order. Simple, but not always efficient.'
+        ,'Each courier decides whether to accept a nearby order after a brief 20-second delay.': 'Each courier decides whether to accept a nearby order after a brief 20-second delay.'
+        ,'Couriers choose orders using urgency, distance, traffic, and an incentive after a brief 10-second decision.': 'Couriers choose orders using urgency, distance, traffic, and an incentive after a brief 10-second decision.'
+        ,'The first available courier takes the next order immediately and follows a random route without considering traffic. Simple, but not always efficient.': 'The first available courier takes the next order immediately and follows a random route without considering traffic. Simple, but not always efficient.'
         ,'The system chooses the courier with the fastest route through current traffic.': 'The system chooses the courier with the fastest route through current traffic.'
-        ,'First available': 'First available'
+        ,'First available': 'Naive: first available courier'
         ,'Independent acceptance': 'Independent acceptance'
         ,'Self-selection + bonus': 'Self-selection + bonus'
         ,'Traffic-aware dispatch': 'Traffic-aware dispatch'
@@ -153,7 +161,8 @@ const translations = {
         ,'Top throughput': 'Top throughput'
         ,'Best service level': 'Best service level'
         ,'Fastest P95': 'Fastest P95'
-        ,'Best fleet use': 'Best fleet use'
+        ,'Best fleet throughput': 'Best fleet throughput'
+        ,'orders/rider-hour': 'orders/rider-hour'
         ,'delivered lowercase': 'delivered'
         ,'Comparison of delivered orders across': 'Comparison of delivered orders across'
         ,'dispatch strategies': 'dispatch strategies'
@@ -164,7 +173,7 @@ const translations = {
         ,'orders versus independent acceptance': 'orders versus independent acceptance'
         ,'The selected run does not include both autonomous strategies.': 'The selected run does not include both autonomous strategies.'
         ,'Traffic-aware dispatch completes': 'Traffic-aware dispatch completes'
-        ,'more orders than self-selection, trading away fleet utilization': 'more orders than self-selection, trading away fleet utilization'
+        ,'more orders than self-selection while keeping fleet utilization lower': 'more orders than self-selection while keeping fleet utilization lower'
         ,'The strongest service-level result is': 'The strongest service-level result is'
         ,'from': 'from'
         ,'DISPATCHLAB / URBAN MOBILITY': 'DISPATCHLAB / URBAN MOBILITY'
@@ -278,6 +287,12 @@ const translations = {
         'Reset scenario': 'Reiniciar escenario',
         'Start simulation': 'Iniciar simulación',
         'Pause simulation': 'Pausar simulación',
+        'Resume simulation': 'Reanudar simulación',
+        'Running selected strategy.': 'Ejecutando la estrategia seleccionada.',
+        'Simulation resumed.': 'Simulación reanudada.',
+        'Simulation complete. Saving experiment...': 'Simulación completa. Guardando experimento...',
+        'Simulation failed': 'La simulación falló',
+        'Single run': 'Ejecución individual',
         'Compare strategies': 'Comparar estrategias',
         'depot': 'depósito',
         'courier': 'repartidor',
@@ -296,6 +311,7 @@ const translations = {
         'Couriers choose individually': 'Los repartidores eligen individualmente',
         'Couriers choose with incentives': 'Los repartidores eligen con incentivos',
         'First available courier': 'Primer repartidor disponible',
+        'Naive: first available courier': 'Ingenua: primer repartidor disponible',
         'Traffic-aware assignment': 'Asignación sensible al tráfico',
         'Scenario': 'Escenario',
         'Scenario seed': 'Semilla del escenario',
@@ -309,6 +325,7 @@ const translations = {
         'Avg. wait time': 'Espera media',
         'Avg. ETA': 'ETA media',
         'Fleet busy time': 'Tiempo ocupado',
+        'Fleet throughput': 'Rendimiento de flota',
         'Slowest 5% delivery': 'Entrega del 5% más lento',
         'Run comparison': 'Ejecutar comparación',
         'Same scenario, different dispatch rules.': 'Mismo escenario, distintas reglas de despacho.',
@@ -364,11 +381,11 @@ const translations = {
         ,'Comparison saved as experiment': 'Comparación guardada como experimento'
         ,'Comparison complete. Results kept locally; server save unavailable': 'Comparación completa. Resultados locales; servidor no disponible'
         ,'Experiment exported as': 'Experimento exportado como'
-        ,'Each courier decides whether to accept a nearby order after a short delay.': 'Cada repartidor decide si acepta un pedido cercano después de una breve espera.'
-        ,'Couriers choose orders using urgency, distance, traffic, and an incentive.': 'Los repartidores eligen pedidos según urgencia, distancia, tráfico e incentivo.'
-        ,'The first available courier gets the next order. Simple, but not always efficient.': 'El primer repartidor disponible recibe el siguiente pedido. Es simple, pero no siempre eficiente.'
+        ,'Each courier decides whether to accept a nearby order after a brief 20-second delay.': 'Cada repartidor decide si acepta un pedido cercano tras una espera breve de 20 segundos.'
+        ,'Couriers choose orders using urgency, distance, traffic, and an incentive after a brief 10-second decision.': 'Los repartidores eligen pedidos según urgencia, distancia, tráfico e incentivo tras decidir en 10 segundos.'
+        ,'The first available courier takes the next order immediately and follows a random route without considering traffic. Simple, but not always efficient.': 'El primer repartidor disponible toma el siguiente pedido de inmediato y sigue una ruta aleatoria sin considerar el tráfico. Es simple, pero no siempre eficiente.'
         ,'The system chooses the courier with the fastest route through current traffic.': 'El sistema elige al repartidor con la ruta más rápida según el tráfico actual.'
-        ,'First available': 'Primer disponible'
+        ,'First available': 'Ingenua: primer repartidor disponible'
         ,'Independent acceptance': 'Aceptación independiente'
         ,'Self-selection + bonus': 'Autoselección + incentivo'
         ,'Traffic-aware dispatch': 'Despacho sensible al tráfico'
@@ -378,7 +395,8 @@ const translations = {
         ,'Top throughput': 'Mayor rendimiento'
         ,'Best service level': 'Mejor nivel de servicio'
         ,'Fastest P95': 'P95 más rápido'
-        ,'Best fleet use': 'Mejor uso de flota'
+        ,'Best fleet throughput': 'Mayor rendimiento de flota'
+        ,'orders/rider-hour': 'pedidos/repartidor-hora'
         ,'delivered lowercase': 'entregados'
         ,'Comparison of delivered orders across': 'Comparación de pedidos entregados entre'
         ,'dispatch strategies': 'estrategias de despacho'
@@ -389,7 +407,7 @@ const translations = {
         ,'orders versus independent acceptance': 'pedidos frente a la aceptación independiente'
         ,'The selected run does not include both autonomous strategies.': 'La ejecución seleccionada no incluye ambas estrategias autónomas.'
         ,'Traffic-aware dispatch completes': 'El despacho sensible al tráfico completa'
-        ,'more orders than self-selection, trading away fleet utilization': 'pedidos más que la autoselección, sacrificando uso de flota'
+        ,'more orders than self-selection while keeping fleet utilization lower': 'pedidos más que la autoselección y con menor utilización de flota'
         ,'The strongest service-level result is': 'El resultado más fuerte de nivel de servicio es'
         ,'from': 'de'
         ,'DISPATCHLAB / URBAN MOBILITY': 'DISPATCHLAB / MOVILIDAD URBANA'

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DispatchLab | City Simulator</title>
-    <link rel="stylesheet" href="/styles.css?v=20261118-4">
+    <link rel="stylesheet" href="/styles.css?v=20261124-2">
 </head>
 <body class="simulator-page">
     <main class="shell">
@@ -59,7 +59,7 @@
                     </div>
                     <progress id="comparisonProgress" max="100" value="0"></progress>
                     <div class="strategy-progress-list" id="strategyProgressList">
-                        <div class="strategy-progress" data-strategy-progress="first_available"><span>First available courier</span><progress max="100" value="0"></progress></div>
+                        <div class="strategy-progress" data-strategy-progress="first_available"><span>Naive: first available courier</span><progress max="100" value="0"></progress></div>
                         <div class="strategy-progress" data-strategy-progress="independent"><span>Couriers choose individually</span><progress max="100" value="0"></progress></div>
                         <div class="strategy-progress" data-strategy-progress="self_selection"><span>Couriers choose with incentives</span><progress max="100" value="0"></progress></div>
                         <div class="strategy-progress" data-strategy-progress="traffic"><span>Traffic-aware assignment</span><progress max="100" value="0"></progress></div>
@@ -71,21 +71,30 @@
                 <section class="first-run-guide" aria-label="How to use the simulator">
                     <div class="section-title"><span>START</span><h2>Run your first study</h2></div>
                     <ol>
-                        <li><strong>Choose a rule</strong><span>or keep the recommended baseline.</span></li>
-                        <li><strong>Press Start</strong><span>and watch the fleet respond.</span></li>
-                        <li><strong>Compare strategies</strong><span>using the same requests.</span></li>
+                        <li>
+                            <span class="guide-icon guide-icon-rule" aria-hidden="true">01</span>
+                            <div><strong>Choose a rule</strong><span>or keep the recommended baseline.</span></div>
+                        </li>
+                        <li>
+                            <span class="guide-icon guide-icon-play" aria-hidden="true"></span>
+                            <div><strong>Press Start</strong><span>and watch the fleet respond.</span></div>
+                        </li>
+                        <li>
+                            <span class="guide-icon guide-icon-compare" aria-hidden="true"></span>
+                            <div><strong>Compare strategies</strong><span>using the same requests.</span></div>
+                        </li>
                     </ol>
                 </section>
                 <section class="control-section algorithm-section">
                     <div class="section-title"><span>01</span><h2>How orders are assigned</h2></div>
                     <label class="select-label" for="algorithm">Choose a dispatch strategy</label>
                     <select id="algorithm">
+                        <option value="first_available" selected>Naive: first available courier</option>
                         <option value="independent">Couriers choose individually</option>
                         <option value="self_selection">Couriers choose with incentives</option>
-                        <option value="first_available">First available courier</option>
                         <option value="traffic">Traffic-aware assignment</option>
                     </select>
-                    <p class="algorithm-note" id="algorithmNote">Couriers accept requests individually after a realistic decision delay.</p>
+                    <p class="algorithm-note" id="algorithmNote">The first available courier takes the next order immediately and follows a random route without considering traffic. Simple, but not always efficient.</p>
                 </section>
 
                 <section class="control-section scenario-section">
@@ -141,6 +150,6 @@
             </div>
         </form>
     </dialog>
-    <script type="module" src="/app.js?v=20261118-1"></script>
+    <script type="module" src="/app.js?v=20261125-5"></script>
 </body>
 </html>

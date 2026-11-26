@@ -15,12 +15,12 @@ service wrapper are represented in one runnable application.
 | Street network | Configurable rectangular grid graph with congestion-weighted shortest paths | `static/dispatch-logic.js` |
 | Delivery requests | Random arrival, random destination, random priority, and map-click creation | `static/app.js` |
 | Courier fleet | Couriers start at four depots and move through pickup and delivery states | `static/app.js` |
-| Dispatch policies | First-available naive dispatch, independent acceptance, self-selection with an efficiency bonus, and traffic-aware courier choice | `static/simulation-engine.js` |
+| Dispatch policies | Ordered from simplest to most complex: naive first-available dispatch, independent acceptance, self-selection with an efficiency bonus, and traffic-aware courier choice | `static/simulation-engine.js` |
 | Operating conditions | Normal, rush, shortage, and downtown presets; demand and fleet controls | `static/simulator.html`, `static/app.js` |
 | Reproducibility | Seeded linear-congruential random number generator; benchmark replays each policy with the same seed and controls | `static/simulation-engine.js`, `static/app.js` |
-| Traffic | Time-varying traffic on street edges; downtown applies a stronger traffic factor | `static/app.js`, `static/dispatch-logic.js` |
+| Traffic | Seeded random congestion bursts per street segment; nonlinear speed penalty, with traffic-aware routes using the same cost as courier movement | `static/app.js`, `static/dispatch-logic.js`, `static/simulation-engine.js` |
 | Telemetry | Delivered, queued, weighted route cost, service level, average pickup time, pickup ETA, P95 delivery time, and fleet utilization | `static/simulator.html`, `static/app.js`, `static/metrics.js` |
-| Experiments | Record a run or benchmark all policies; compare delivery, time, distance, utilization, and rating | `static/app.js` |
+| Experiments | Record a run or benchmark all policies; compare delivery, time, distance, fleet throughput, and rating | `static/app.js` |
 | Service/API | Spring Boot serves static resources, exposes health, and stores experiment results through a validated API | `api/HealthController.java`, `api/experiment/ExperimentController.java` |
 | Packaging | Maven build and Docker Compose launcher | `pom.xml`, `Dockerfile`, `docker-compose.yml`, `run.bat` |
 
@@ -43,24 +43,34 @@ saving the results through the API.
 
 ## Policy definitions
 
+- **Naive: first available courier:** assigns the next request to the first idle
+  courier and follows a seeded random route without considering traffic.
 - **Baseline: nearest:** assigns queued requests in arrival order to the idle
   courier with the fewest street edges to pickup.
 - **Self-selection + bonus:** models couriers choosing the request with the
   best local payoff from a priority-weighted incentive minus a blended pickup
-  cost. The cost is 55% distance and 45% traffic-aware distance, so couriers
-  retain agency while still responding to congestion. It is intentionally a
-  middle ground between independent acceptance and centralized
-  traffic-aware dispatch. Its 200-second acceptance delay is also intentionally
-  between independent acceptance and immediate centralized dispatch.
+  cost. Traffic-aware route costs are weighted twice as heavily as the
+  distance-only baseline, so couriers respond strongly to congestion while
+  retaining agency. Couriers decide after 10 seconds, versus 20 seconds for
+  independent acceptance; centralized traffic-aware dispatch assigns
+  immediately.
 - **Independent acceptance:** keeps the nearest-courier assignment, but models
-  each courier accepting individually after the same decision delay used by
-  self-selection. This is the simpler autonomous baseline.
-- **Traffic-aware dispatch:** assigns queued requests in arrival order to the
-  idle courier with the lowest current traffic-weighted route cost to pickup.
+  each courier accepting individually after a brief 20-second decision delay.
+  This is the simpler autonomous baseline.
+- **Traffic-aware dispatch:** greedily matches idle couriers and queued requests
+  by the lowest current travel-time route to pickup. It plans both pickup and
+  delivery routes against current edge traffic.
 
 Couriers accept one request at a time. All strategies use the same seeded
 request stream in a benchmark, but their traffic and courier positions may
 diverge as the simulation proceeds.
+
+Traffic targets are randomized per undirected street every 24 simulated
+seconds, then ease toward the new congestion over 8 seconds. The traffic random
+stream is seeded independently from request and route randomness, so all
+strategies in a comparison encounter the same traffic pattern. Effective
+traffic is capped at 3.5; its 1.6-power speed penalty makes severe congestion
+many times slower than clear roads while keeping deliveries possible.
 
 ## Metric definitions
 
@@ -78,19 +88,21 @@ diverge as the simulation proceeds.
   based on current route-edge traffic.
 - **Utilization:** accumulated courier busy-time divided by total available
   courier-time, as a percentage.
+- **Fleet throughput:** completed deliveries per total courier-hour in the run.
+  This measures delivered output against all fleet capacity, so saturated
+  strategies can still be distinguished by how many requests they complete.
 - **Service level:** percentage of completed requests delivered within the
   180-second assignment-to-delivery target.
 - **P95 delivery time:** 95th percentile of assignment-to-delivery time for
   completed requests.
-- **Courier rating:** rolling score derived from pickup time, delivery time,
-  total customer wait, on-time completion, and small coordination penalties.
-  The first five minutes of total wait are tolerated; after that, the wait
-  component decays exponentially, making a 30-minute delivery materially
-  worse than a five-minute delivery. The result is bounded from 1 to 5.
+- **Courier rating:** score based on assignment-to-delivery time. Finishing
+  within the service target changes the score by at most 0.25 points; every
+  additional service-target interval late costs 2 points, down to a minimum
+  of 1. This keeps efficiency rewards modest while making delays decisive.
 - In comparison results, green, amber, and red identify the best, middle, and
   worst relative value for each metric; they describe the current benchmark,
   not an absolute industry target.
-- **Benchmark pressure:** the default medium workload generates about 212 requests
+- **Benchmark pressure:** the default medium workload generates 80 requests
   over 3,600 simulated seconds (60 minutes). Courier movement uses a calibrated base speed
   before traffic weighting, so finite fleet capacity creates a visible backlog
   instead of allowing every policy to deliver every request.

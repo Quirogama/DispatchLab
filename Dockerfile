@@ -13,7 +13,8 @@ RUN apt-get update \
     && apt-get install --no-install-recommends -y curl nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system dispatchlab \
-    && useradd --system --gid dispatchlab dispatchlab
+    && useradd --system --gid dispatchlab dispatchlab \
+    && chown -R dispatchlab:dispatchlab /app/src/main/resources/static
 USER dispatchlab
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

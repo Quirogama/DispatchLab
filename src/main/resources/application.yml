@@ -15,7 +15,7 @@ spring:
     password: ${RABBITMQ_PASSWORD:guest}
 
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 dispatchlab:
   worker:

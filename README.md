@@ -62,27 +62,65 @@ http://localhost:8080
 
 The application sends `Cache-Control: no-store` for its HTML, CSS, and
 JavaScript resources, so a normal browser refresh requests the current files.
-The container still needs to rebuild when source files change; use the watch
-launcher below for that automatic rebuild.
 
 ### Automatic updates while developing
 
-To keep the container running and automatically rebuild the application after
-changes to Java, HTML, CSS, or JavaScript files, use:
+To keep the container running and automatically sync HTML, CSS, and JavaScript
+changes without rebuilding the image, use:
 
 ```bash
 docker compose watch
 ```
 
-On Windows, double-click `watch.bat`. This watches `src/`, `pom.xml`, and the
-Dockerfile, then rebuilds and restarts the application container when a
-relevant file changes. The PostgreSQL volume is preserved.
+On Windows, double-click `run.bat` or `watch.bat`. The first run builds the
+image; later changes to Java source, application configuration, `schema.sql`,
+`pom.xml`, or the Dockerfile rebuild the application container. The PostgreSQL
+volume is preserved.
 
 ### Windows one-click launcher
 
 Double-click `run.bat` in the project folder. It builds and starts the app with
 Docker Compose. Keep the window open while using DispatchLab; press `Ctrl+C` to
 stop it.
+
+## Deploy the public demo with Render and Neon
+
+The public demo uses one Docker web service on Render and a hosted PostgreSQL
+database on Neon. This deployment keeps the simulation and experiment API
+available without a RabbitMQ worker service or a paid database.
+
+1. Create a free Neon project and database.
+2. Copy the Neon PostgreSQL connection parameters.
+3. Create a free Render account.
+4. Push this repository to GitHub.
+5. In Render, select **New > Blueprint** and choose the repository.
+6. Render will read `render.yaml` and request the database values.
+7. Set these environment variables in Render:
+
+```text
+DB_URL=jdbc:postgresql://<neon-host>/<database>?sslmode=require
+DB_USERNAME=<neon-user>
+DB_PASSWORD=<neon-password>
+DISPATCHLAB_WORKER_ENABLED=false
+```
+
+Use the JDBC values shown in Neon rather than a plain PostgreSQL URL:
+
+```text
+jdbc:postgresql://ep-example.us-east-2.aws.neon.tech/neondb?sslmode=require
+```
+
+After deployment, verify:
+
+```text
+https://<your-render-name>.onrender.com/
+https://<your-render-name>.onrender.com/simulator.html
+https://<your-render-name>.onrender.com/api/health
+https://<your-render-name>.onrender.com/api/health/ready
+```
+
+The free public demo does not start distributed RabbitMQ workers.
+The browser simulation and synchronous experiment recording remain available.
 
 ## Alternative: local run with Maven
 

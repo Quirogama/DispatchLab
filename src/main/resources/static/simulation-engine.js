@@ -6,9 +6,13 @@ import {
   recomputeEdgeWeights,
   shortestPath,
   orderRequests
-} from './dispatch-logic.js';
+} from './dispatch-logic.js?v=20261125-4';
 
 const COURIER_SPEED = 0.1;
+export const DEFAULT_DEMAND_DELAY_SECONDS = 45;
+const TRAFFIC_CHANGE_INTERVAL_SECONDS = 24;
+const TRAFFIC_RESPONSE_SECONDS = 8;
+const TRAFFIC_SPEED_EXPONENT = 1.6;
 const DEFAULT_NAMES = ['Maya', 'Leo', 'Nora', 'Sam', 'Iris', 'Alex', 'Zoe', 'Noah', 'Lina', 'Kai'];
 const DEFAULT_COLORS = ['#e5684c', '#f09b52', '#c94f59'];
 
@@ -32,37 +36,102 @@ function randomStation(random, grid, exclude) {
 }
 
 function roadDistance(graph, from, to) {
-  const route = shortestPath(graph, from, to);
-  return route.length > 1 ? route.reduce((total, node, index) => {
-    if (index === 0) return total;
-    const edge = getEdge(graph, route[index - 1], node);
+  const route = roadRoute(graph, from, to);
+  return routeDistance(graph, route);
+}
+
+function roadRoute(graph, from, to) {
+  return shortestPath(graph, from, to, () => 1);
+}
+
+function streetDistance(graph, from, to) {
+  return Math.max(0, roadRoute(graph, from, to).length - 1);
+}
+
+function trafficAwareRoute(graph, from, to) {
+  return shortestPath(graph, from, to, edge => trafficSlowdown(edge) / COURIER_SPEED);
+}
+
+function trafficSlowdown(edge) {
+  const traffic = getEffectiveTraffic(edge);
+  return 0.2 * Math.pow(traffic / 0.2, TRAFFIC_SPEED_EXPONENT);
+}
+
+function courierRoute(state, from, to) {
+  if (state.algorithm === 'first_available') {
+    return randomizedRoute(state.graph, from, to, state.random);
+  }
+  if (state.algorithm === 'traffic') {
+    return trafficAwareRoute(state.graph, from, to);
+  }
+  return roadRoute(state.graph, from, to);
+}
+
+function routeDistance(graph, route) {
+  return route.slice(1).reduce((total, node, index) => {
+    const edge = getEdge(graph, route[index], node);
     return total + (edge?.weight ?? 1);
-  }, 0) : 0;
+  }, 0);
+}
+
+function randomizedRoute(graph, start, end, random) {
+  const startKey = `${start.x},${start.y}`;
+  const endKey = `${end.x},${end.y}`;
+  if (startKey === endKey) return [{ ...start }];
+
+  const visited = new Set([startKey]);
+  const previous = new Map();
+  const stack = [startKey];
+
+  while (stack.length > 0 && !visited.has(endKey)) {
+    const currentKey = stack[stack.length - 1];
+    const candidates = (graph.adjacency.get(currentKey) ?? [])
+      .filter(node => !visited.has(`${node.x},${node.y}`));
+    if (candidates.length === 0) {
+      stack.pop();
+      continue;
+    }
+
+    const next = candidates[Math.floor(random() * candidates.length)];
+    const nextKey = `${next.x},${next.y}`;
+    visited.add(nextKey);
+    previous.set(nextKey, currentKey);
+    stack.push(nextKey);
+  }
+
+  if (!visited.has(endKey)) throw new Error(`No route from ${startKey} to ${endKey}`);
+
+  const route = [];
+  let currentKey = endKey;
+  while (currentKey !== startKey) {
+    const [x, y] = currentKey.split(',').map(Number);
+    route.unshift({ x, y });
+    currentKey = previous.get(currentKey);
+  }
+  route.unshift({ ...start });
+  return route;
 }
 
 function trafficWeightedDistance(graph, from, to) {
-  const route = shortestPath(graph, from, to);
-  return route.length > 1 ? route.reduce((total, node, index) => {
-    if (index === 0) return total;
-    const edge = getEdge(graph, route[index - 1], node);
-    const trafficMultiplier = getEffectiveTraffic(edge) / 0.2;
-    return total + (edge?.weight ?? 1) * trafficMultiplier;
-  }, 0) : 0;
+  const route = trafficAwareRoute(graph, from, to);
+  return route.slice(1).reduce((total, node, index) => {
+    const edge = getEdge(graph, route[index], node);
+    return total + trafficSlowdown(edge) / 0.2;
+  }, 0);
 }
 
 function selfSelectionCost(state, courier, request) {
-  const distance = roadDistance(state.graph, courier, request.pickup);
+  const distance = streetDistance(state.graph, courier, request.pickup);
   const trafficDistance = trafficWeightedDistance(state.graph, courier, request.pickup);
   return distance + state.selfSelectionTrafficWeight * (trafficDistance - distance);
 }
 
 export function travelTime(graph, from, to) {
-  const route = shortestPath(graph, from, to);
+  const route = trafficAwareRoute(graph, from, to);
   return route.reduce((total, node, index) => {
     if (index === 0) return total;
     const edge = getEdge(graph, route[index - 1], node);
-    const traffic = getEffectiveTraffic(edge);
-    return total + ((edge?.weight ?? 1) * traffic) / COURIER_SPEED;
+    return total + trafficSlowdown(edge) / COURIER_SPEED;
   }, 0);
 }
 
@@ -82,18 +151,10 @@ function updateCourierRating(state, courier, request) {
   const pickupTime = request.pickedUpAt - request.assignedAt;
   const deliveryTime = request.deliveredAt - request.pickedUpAt;
   const totalTime = request.deliveredAt - request.assignedAt;
-  const pickupScore = Math.max(0, 1 - pickupTime / 35);
-  const deliveryScore = Math.max(0, 1 - deliveryTime / 75);
-  const customerWaitScore = Math.exp(-Math.max(0, totalTime - 300) / 600);
-  const onTimeScore = totalTime <= state.serviceTargetSeconds ? 1 : 0;
-  const coordinationPenalty = state.algorithm === 'independent' || state.algorithm === 'self_selection'
-    ? 0.15
-    : state.algorithm === 'first_available' ? 0.25 : 0;
-  const orderRating = Math.max(1, Math.min(5,
-  1.7 + ((pickupScore * 0.25) + (deliveryScore * 0.25) +
-    (customerWaitScore * 0.4) + (onTimeScore * 0.1)) * 3.3 -
-  coordinationPenalty
-  ));
+  const serviceTarget = Math.max(1, state.serviceTargetSeconds);
+  const efficiencyPenalty = Math.min(totalTime / serviceTarget, 1) * 0.25;
+  const delayPenalty = 2 * Math.max(0, totalTime - serviceTarget) / serviceTarget;
+  const orderRating = Math.max(1, Math.min(5, 5 - efficiencyPenalty - delayPenalty));
   const completed = courier.profile.completedOrders;
 
   courier.profile.rating = ((courier.profile.rating * completed) + orderRating) / (completed + 1);
@@ -110,9 +171,12 @@ function updateCourierRating(state, courier, request) {
 function chooseCourier(state, request, available) {
   const score = (courier) => {
     if (state.algorithm === 'first_available') return courier.id;
+    if (
+      (state.algorithm === 'self_selection' || state.algorithm === 'traffic') &&
+      courier.id === request.selectedCourierId
+    ) return -1;
     if (state.algorithm === 'traffic') return travelTime(state.graph, courier, request.pickup);
-    if (state.algorithm === 'self_selection' && courier.id === request.selfSelectedCourierId) return -1;
-    return roadDistance(state.graph, courier, request.pickup);
+    return streetDistance(state.graph, courier, request.pickup);
   };
 
   return [...available].sort((a, b) => score(a) - score(b) || a.id - b.id)[0];
@@ -124,25 +188,27 @@ function assignRequests(state) {
     state.requests.filter(request => request.assigned == null),
     state.algorithm
   );
-  if (state.algorithm === 'self_selection') {
-    const selfSelected = [];
-  const candidates = [...available];
-  while (candidates.length > 0 && queued.length > 0) {
-    let bestChoice;
-    candidates.forEach(courier => queued.forEach(request => {
-        const utility = (request.priority * state.selfSelectionBonus) -
-          selfSelectionCost(state, courier, request);
+  if (state.algorithm === 'self_selection' || state.algorithm === 'traffic') {
+    const matches = [];
+    const candidates = [...available];
+    while (candidates.length > 0 && queued.length > 0) {
+      let bestChoice;
+      candidates.forEach(courier => queued.forEach(request => {
+        const utility = state.algorithm === 'traffic'
+          ? -travelTime(state.graph, courier, request.pickup)
+          : (request.priority * state.selfSelectionBonus) -
+            selfSelectionCost(state, courier, request);
         if (!bestChoice || utility > bestChoice.utility ||
           (utility === bestChoice.utility && request.createdAt < bestChoice.request.createdAt)) {
           bestChoice = { courier, request, utility };
         }
       }));
-      selfSelected.push(bestChoice);
-      bestChoice.request.selfSelectedCourierId = bestChoice.courier.id;
+      matches.push(bestChoice);
+      bestChoice.request.selectedCourierId = bestChoice.courier.id;
       candidates.splice(candidates.indexOf(bestChoice.courier), 1);
       queued = queued.filter(request => request !== bestChoice.request);
     }
-    queued = selfSelected.map(choice => choice.request);
+    queued = matches.map(match => match.request);
   }
 
   queued.forEach(request => {
@@ -151,31 +217,35 @@ function assignRequests(state) {
 
     request.assigned = courier.id;
     request.assignedAt = state.elapsed;
-    request.actualDistance = roadDistance(state.graph, courier, request.pickup) +
-      roadDistance(state.graph, request.pickup, request.destination);
+    const plannedRoute = state.algorithm === 'first_available' || state.algorithm === 'traffic';
+    const pickupRoute = plannedRoute
+      ? courierRoute(state, courier, request.pickup)
+      : null;
+    const deliveryRoute = plannedRoute
+      ? courierRoute(state, request.pickup, request.destination)
+      : null;
+    request.actualDistance = plannedRoute
+      ? routeDistance(state.graph, pickupRoute) + routeDistance(state.graph, deliveryRoute)
+      : roadDistance(state.graph, courier, request.pickup) +
+        roadDistance(state.graph, request.pickup, request.destination);
     state.totalAssignedDistance += request.actualDistance;
-    const delayedAcceptance = state.algorithm === 'independent' ||
-      state.algorithm === 'self_selection' || state.algorithm === 'first_available';
+    const delayedAcceptance = state.algorithm === 'independent' || state.algorithm === 'self_selection';
     courier.status = delayedAcceptance ? 'accepting' : 'to-pickup';
     courier.acceptanceRemaining = delayedAcceptance
-      ? state.algorithm === 'first_available'
-        ? state.naiveAcceptanceDelaySeconds
-        : state.algorithm === 'self_selection'
-          ? state.selfSelectionAcceptanceDelaySeconds
-          : state.acceptanceDelaySeconds
+      ? state.algorithm === 'self_selection'
+        ? state.selfSelectionAcceptanceDelaySeconds
+        : state.acceptanceDelaySeconds
       : 0;
     courier.request = request;
-    courier.route = [];
+    courier.route = pickupRoute ? pickupRoute.slice(1) : [];
+    courier.deliveryRoute = deliveryRoute ? deliveryRoute.slice(1) : null;
     available.splice(available.indexOf(courier), 1);
   });
 }
 
 function setCourierRoute(state, courier, target) {
-  const route = shortestPath(
-    state.graph,
-    { x: Math.round(courier.x), y: Math.round(courier.y) },
-    target
-  );
+  const start = { x: Math.round(courier.x), y: Math.round(courier.y) };
+  const route = courierRoute(state, start, target);
   courier.route = route.length > 1 ? route.slice(1) : [];
 }
 
@@ -183,7 +253,15 @@ function completeCourierPhase(state, courier) {
   if (courier.status === 'to-pickup') {
     courier.request.pickedUpAt = state.elapsed;
     courier.status = 'delivering';
-    setCourierRoute(state, courier, courier.request.destination);
+    if (state.algorithm === 'traffic') {
+      setCourierRoute(state, courier, courier.request.destination);
+      courier.deliveryRoute = null;
+    } else if (courier.deliveryRoute !== null) {
+      courier.route = courier.deliveryRoute;
+      courier.deliveryRoute = null;
+    } else {
+      setCourierRoute(state, courier, courier.request.destination);
+    }
     return;
   }
 
@@ -195,6 +273,8 @@ function completeCourierPhase(state, courier) {
   courier.request = null;
   courier.status = 'idle';
   courier.route = [];
+  courier.deliveryRoute = null;
+  courier.routeNeedsReplan = false;
 }
 
 function moveCourier(state, courier, deltaSeconds) {
@@ -229,33 +309,57 @@ function moveCourier(state, courier, deltaSeconds) {
     { x: Math.round(courier.x), y: Math.round(courier.y) },
     next
   );
-  const speed = COURIER_SPEED / getEffectiveTraffic(edge);
+  const speed = COURIER_SPEED / trafficSlowdown(edge);
   const step = deltaSeconds * speed;
 
   if (segmentLength <= step) {
     courier.x = next.x;
     courier.y = next.y;
     courier.route.shift();
-    if (courier.route.length === 0) completeCourierPhase(state, courier);
+    if (courier.route.length === 0) {
+      completeCourierPhase(state, courier);
+    } else if (courier.routeNeedsReplan) {
+      courier.routeNeedsReplan = false;
+      setCourierRoute(state, courier, target);
+    }
   } else {
     courier.x += (dx / segmentLength) * step;
     courier.y += (dy / segmentLength) * step;
   }
 }
 
-function updateTraffic(state) {
-  const trafficRamp = Math.min(state.elapsed / 20, 1);
+function updateTraffic(state, deltaSeconds) {
+  const segment = Math.floor(state.elapsed / TRAFFIC_CHANGE_INTERVAL_SECONDS);
+  const changed = segment !== state.trafficSegment;
+  if (changed) {
+    const targets = new Map();
+    state.graph.nodes.forEach(node => {
+      (state.graph.adjacency.get(node.key) ?? []).forEach(edge => {
+        const from = node.key;
+        const to = `${edge.x},${edge.y}`;
+        const key = [from, to].sort().join('|');
+        if (targets.has(key)) return;
+        const corridorBoost = edge.congestion >= 0.8 ? 0.45 : 0;
+        targets.set(key, Math.min(2.6, state.trafficRandom() * 2.2 + corridorBoost));
+      });
+    });
+    state.trafficTargets = targets;
+    state.trafficSegment = segment;
+  }
+
+  const response = 1 - Math.exp(-deltaSeconds / TRAFFIC_RESPONSE_SECONDS);
   state.graph.nodes.forEach(node => {
     const neighbors = state.graph.adjacency.get(node.key) ?? [];
     neighbors.forEach(edge => {
-      const corridorPulse = (edge.x === 3 || edge.x === 8 || edge.y === 2 || edge.y === 5) ? 0.45 : 0;
-      const centerPulse = (node.x >= 4 && node.x <= 7 && node.y >= 2 && node.y <= 5) ? 0.3 : 0;
-      const wave = Math.sin((state.elapsed * 1.8) + (node.x * 1.7) + (edge.y * 1.1)) * 0.35;
-      const targetTraffic = Math.max(0, Math.min(1.2, 0.1 + wave + corridorPulse + centerPulse)) * trafficRamp;
-      edge.traffic += (targetTraffic - edge.traffic) * 0.025;
+      const from = node.key;
+      const to = `${edge.x},${edge.y}`;
+      const key = [from, to].sort().join('|');
+      const targetTraffic = state.trafficTargets.get(key) ?? 0;
+      edge.traffic += (targetTraffic - edge.traffic) * response;
     });
   });
   recomputeEdgeWeights(state.graph);
+  return changed;
 }
 
 export function createSimulationState(options = {}) {
@@ -276,16 +380,18 @@ export function createSimulationState(options = {}) {
     completedRequests: [],
     seed,
     random: createRandom(seed),
+    trafficRandom: createRandom(seed ^ 0x9e3779b9),
+    trafficSegment: -1,
+    trafficTargets: new Map(),
     graph: buildGridGraph(grid),
     requests: [],
     nextRequestId: 0,
     algorithm: options.algorithm ?? 'nearest',
-    demandDelay: options.demandDelay ?? 1.7,
-    acceptanceDelaySeconds: options.acceptanceDelaySeconds ?? 240,
+    demandDelay: options.demandDelay ?? DEFAULT_DEMAND_DELAY_SECONDS,
+    acceptanceDelaySeconds: options.acceptanceDelaySeconds ?? 20,
     selfSelectionBonus: options.selfSelectionBonus ?? 6,
-    selfSelectionTrafficWeight: options.selfSelectionTrafficWeight ?? 0.45,
-    selfSelectionAcceptanceDelaySeconds: options.selfSelectionAcceptanceDelaySeconds ?? 200,
-    naiveAcceptanceDelaySeconds: options.naiveAcceptanceDelaySeconds ?? 300,
+    selfSelectionTrafficWeight: options.selfSelectionTrafficWeight ?? 2,
+    selfSelectionAcceptanceDelaySeconds: options.selfSelectionAcceptanceDelaySeconds ?? 10,
     serviceTargetSeconds: options.serviceTargetSeconds ?? 180,
     scenarioEvents: options.scenarioEvents ?? null,
     eventIndex: 0,
@@ -301,6 +407,8 @@ export function createSimulationState(options = {}) {
       acceptanceRemaining: 0,
       request: null,
       route: [],
+      deliveryRoute: null,
+      routeNeedsReplan: false,
       profile: {
         name: options.courierNames?.[index % options.courierNames.length] ??
           DEFAULT_NAMES[index % DEFAULT_NAMES.length],
@@ -356,7 +464,12 @@ export function advanceSimulation(state, deltaMilliseconds) {
   const deltaSeconds = Math.max(0, Number(deltaMilliseconds) / 1000);
   const previousElapsed = state.elapsed;
   state.elapsed += deltaSeconds;
-  updateTraffic(state);
+  const trafficChanged = updateTraffic(state, deltaSeconds);
+  if (trafficChanged && state.algorithm === 'traffic') {
+    state.couriers.forEach(courier => {
+      if (courier.request) courier.routeNeedsReplan = true;
+    });
+  }
   spawnScheduledRequests(state, previousElapsed);
   state.requests.forEach(request => { request.age += deltaSeconds; });
 
@@ -373,7 +486,7 @@ export function generateScenarioEvents(options = {}) {
   const random = createRandom(options.seed ?? 90210);
   const grid = options.grid ?? { columns: 15, rows: 6 };
   const durationSeconds = options.durationSeconds ?? 180;
-  const demandDelay = options.demandDelay ?? 1.7;
+  const demandDelay = options.demandDelay ?? DEFAULT_DEMAND_DELAY_SECONDS;
   const events = [];
 
   for (let at = demandDelay; at <= durationSeconds; at += demandDelay) {
@@ -399,7 +512,7 @@ export function runExperiment(options = {}) {
       ...options,
       algorithm,
       scenarioEvents: events,
-      demandDelay: options.demandDelay ?? 1.7
+      demandDelay: options.demandDelay ?? DEFAULT_DEMAND_DELAY_SECONDS
     });
     for (let elapsed = 0; elapsed < durationSeconds * 1000; elapsed += stepMilliseconds) {
       advanceSimulation(state, stepMilliseconds);

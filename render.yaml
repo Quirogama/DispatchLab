@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: dispatchlab
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    envVars:
+      - key: DB_URL
+        sync: false
+      - key: DB_USERNAME
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: RABBITMQ_HOST
+        value: localhost
+      - key: RABBITMQ_PORT
+        value: 5672
+      - key: RABBITMQ_USERNAME
+        value: guest
+      - key: RABBITMQ_PASSWORD
+        value: guest
+      - key: DISPATCHLAB_WORKER_ENABLED
+        value: false

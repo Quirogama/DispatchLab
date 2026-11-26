@@ -33,6 +33,15 @@ test('calculateMetrics returns operational measures from simulation state', () =
     assert.equal(metrics.p95DeliveryTime, 38.5);
     assert.equal(metrics.serviceLevel, 75);
     assert.equal(metrics.utilization, 37.5);
+    assert.equal(metrics.fleetThroughput, 72);
     assert.equal(metrics.averageRating, 4.5);
     assert.equal(metrics.averageEta, 15);
+});
+
+test('fleet throughput distinguishes delivery output when utilization is unchanged', () => {
+    const lowerOutput = calculateMetrics(createState({ delivered: 2 }));
+    const higherOutput = calculateMetrics(createState({ delivered: 4 }));
+
+    assert.equal(lowerOutput.utilization, higherOutput.utilization);
+    assert.ok(lowerOutput.fleetThroughput < higherOutput.fleetThroughput);
 });

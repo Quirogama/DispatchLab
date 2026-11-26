@@ -64,7 +64,7 @@ export function getEffectiveTraffic(edge) {
   if (!edge) return 0.2;
   const traffic = Number(edge.traffic ?? 0);
   const base = Number(edge.congestion ?? 0.2);
-  return Math.min(2.2, Math.max(0.2, base + traffic));
+  return Math.min(3.5, Math.max(0.2, base + traffic));
 }
 
 export function recomputeEdgeWeights(graph) {
@@ -96,7 +96,7 @@ export function nearestNode(graph, point) {
   return best;
 }
 
-export function shortestPath(graph, start, end) {
+export function shortestPath(graph, start, end, edgeCost = edge => edge.weight ?? 1) {
   const startKey = toNodeKey(start);
   const endKey = toNodeKey(end);
   const costs = new Map([[startKey, 0]]);
@@ -144,7 +144,7 @@ export function shortestPath(graph, start, end) {
 
     for (const neighbor of graph.adjacency.get(currentKey) ?? []) {
       const neighborKey = `${neighbor.x},${neighbor.y}`;
-      const edgeWeight = neighbor.weight ?? 1;
+      const edgeWeight = edgeCost(neighbor);
       const candidateCost = (costs.get(currentKey) ?? Infinity) + edgeWeight;
 
       if (candidateCost < (costs.get(neighborKey) ?? Infinity)) {

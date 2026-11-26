@@ -42,6 +42,7 @@ export function calculateMetrics(state, activeEtas = []) {
         p95DeliveryTime: percentile(state.deliveryTimes, 0.95),
         serviceLevel: completed > 0 ? (state.onTimeDeliveries / completed) * 100 : 0,
         utilization: totalCourierTime > 0 ? Math.min(100, (busyTime / totalCourierTime) * 100) : 0,
+        fleetThroughput: totalCourierTime > 0 ? (completed * 3600) / totalCourierTime : 0,
         averageRating: completed > 0 ? state.totalRating / completed : 0
     };
 }

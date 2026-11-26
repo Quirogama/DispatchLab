@@ -37,6 +37,7 @@ services:
       DB_URL: jdbc:postgresql://database:5432/dispatchlab
       DB_USERNAME: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
       DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      SPRING_WEB_RESOURCES_STATIC_LOCATIONS: file:/app/src/main/resources/static/,classpath:/META-INF/resources/,classpath:/resources/,classpath:/static/,classpath:/public/
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USERNAME: guest
       RABBITMQ_PASSWORD: guest
@@ -49,8 +50,15 @@ services:
     restart: unless-stopped
     develop:
       watch:
+        - action: sync
+          path: ./src/main/resources/static
+          target: /app/src/main/resources/static
         - action: rebuild
-          path: ./src
+          path: ./src/main/java
+        - action: rebuild
+          path: ./src/main/resources/application.yml
+        - action: rebuild
+          path: ./src/main/resources/schema.sql
         - action: rebuild
           path: ./pom.xml
         - action: rebuild
